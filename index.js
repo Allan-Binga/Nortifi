@@ -41,6 +41,24 @@ app.use("/mail-marketing-system/v1/auth", authRoute);
 app.use("/mail-marketing-system/v1/contacts", contactRoute);
 app.use("/mail-marketing-system/v1/emails", emailsRoute);
 
+//Serve Static Files
+if (process.env.NODE_ENV === "production") {
+  const clientDistPath = path.join(__dirname, "client", "dist");
+  app.use(express.static(clientDistPath));
+
+  // Fallback for frontend routes
+  app.use((req, res, next) => {
+    if (
+      req.method === "GET" &&
+      !req.path.startsWith("/mail-marketing-system")
+    ) {
+      res.sendFile(path.join(clientDistPath, "index.html"));
+    } else {
+      next();
+    }
+  });
+}
+
 //Server start
 const PORT = process.env.PORT || 6300;
 
