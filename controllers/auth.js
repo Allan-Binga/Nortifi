@@ -6,12 +6,13 @@ const Joi = require("joi");
 // Joi schema for sign up
 const signUpSchema = Joi.object({
   userName: Joi.string()
-    .pattern(/^[A-Za-z][A-Za-z'\-]{2,}$/)
+    .pattern(/^[A-Za-z][A-Za-z'\-\s]{2,}$/)
     .required()
     .messages({
       "string.pattern.base":
-        "Name must be at least 3 characters and contain only valid characters.",
+        "Name must be at least 3 characters and contain only letters, spaces, apostrophes, or hyphens.",
     }),
+
   email: Joi.string().email().required(),
   password: Joi.string()
     .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/)
