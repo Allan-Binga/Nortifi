@@ -47,7 +47,7 @@ app.use("/mail-marketing-system/v1/emails", emailsRoute);
 
 //Serve Static Files
 if (process.env.NODE_ENV === "production") {
-  const clientDistPath = path.join(__dirname, "client", "dist");
+  const clientDistPath = path.join(__dirname, "frontend", "dist");
   app.use(express.static(clientDistPath));
 
   // Fallback for frontend routes
