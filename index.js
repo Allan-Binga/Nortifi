@@ -18,7 +18,10 @@ const app = express();
 app.use(express.json());
 
 //CORS
-const allowedOrigins = ["http://localhost:5173"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://mail-marketing-system-77782bd73854.herokuapp.com",
+];
 
 const corsOptions = {
   origin: function (origin, callback) {
