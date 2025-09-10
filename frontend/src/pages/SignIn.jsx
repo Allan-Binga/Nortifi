@@ -219,7 +219,7 @@ function SignIn() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-slate-800 text-white py-2.5 rounded-full font-medium hover:bg-slate-700 transition disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full bg-slate-800 text-white py-2.5 rounded-full font-medium hover:bg-slate-700 transition disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
               >
                 {isLoading ? (
                   <svg
