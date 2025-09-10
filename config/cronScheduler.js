@@ -6,6 +6,7 @@ const { SendEmailCommand } = require("@aws-sdk/client-ses");
 const scheduleCampaigns = async () => {
   // Run every minute to check for due campaigns
   cron.schedule("* * * * *", async () => {
+    console.log("Cron starting...")
     try {
       const now = new Date();
       const { rows: campaigns } = await client.query(

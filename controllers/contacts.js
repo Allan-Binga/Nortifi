@@ -1,4 +1,5 @@
 const client = require("../config/db");
+const crypto = require("crypto");
 
 // Fetch all contacts
 const getContacts = async (req, res) => {
@@ -18,11 +19,14 @@ const createContact = async (req, res) => {
   try {
     const { name, email, phoneNumber, tag, website } = req.body;
 
+    // Generate unique unsubscribe token
+    const unsubscribeToken = crypto.randomBytes(20).toString("hex");
+
     const result = await client.query(
-      `INSERT INTO contacts (phone_number, email, name, tag, website)
-       VALUES ($1, $2, $3, COALESCE($4, 'New Client'), $5)
+      `INSERT INTO contacts (phone_number, email, name, tag, website, unsubscribe_token)
+       VALUES ($1, $2, $3, COALESCE($4, 'New Client'), $5, $6)
        RETURNING *`,
-      [phoneNumber, email, name, tag, website]
+      [phoneNumber, email, name, tag, website, unsubscribeToken]
     );
 
     res.status(201).json({

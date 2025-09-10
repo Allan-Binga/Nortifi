@@ -267,8 +267,11 @@ function Contact() {
     <div className="relative min-h-screen bg-white">
       <Navbar />
       <BackgroundWaves />
-      <div className="container mx-auto px-4 pt-32 sm:px-6 lg:px-8 py-8 relative z-10">
+      <div className="container mx-auto px-4 pt-30 sm:px-6 lg:px-8 py-8 relative z-10 mt-6">
         {/* Create/Update Contact Form */}
+        <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 ">
+          Create a contact
+        </h1>
         <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
             {editingContact ? "Update Contact" : "Create New Contact"}

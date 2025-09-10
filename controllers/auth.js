@@ -139,4 +139,18 @@ const signIn = async (req, res) => {
   }
 };
 
-module.exports = { signUp, signIn };
+//Sign-Out Users
+const signOut = async (req, res) => {
+  try {
+    if (!req.cookies?.userMailMktSession) {
+      return res.status(400).json({ message: "You are not logged in." });
+    }
+    res.clearCookie("userMailMktSession");
+    res.status(200).json({ message: "Logout successful" });
+  } catch (error) {
+    console.error("Admin Logout Error:", error);
+    res.status(500).json({ message: "Error occurred during logout." });
+  }
+};
+
+module.exports = { signUp, signIn, signOut };

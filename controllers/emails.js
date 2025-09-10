@@ -148,29 +148,77 @@ const sendEmailAWS = async (req, res) => {
 
     // Generate footer for each recipient
     for (const recipient of recipientsToSend) {
-      let footer = `
-        <br><hr>
-        <p style="font-size: 12px; color: #666;">
-          Don't want to receive these emails? 
-          <a href="http://localhost:6300/mail-marketing-system/emails/unsubscribe?token=${recipient.unsubscribe_token}">Unsubscribe</a>
-        </p>
-      `;
+      // --- Email Template ---
+      const footerParts = [];
+
+      // Unsubscribe section
+      footerParts.push(`
+    <p style="font-size: 12px; color: #666; margin: 20px 0;">
+      Don’t want to receive these emails? 
+      <a href="http://localhost:6300/mail-marketing-system/emails/unsubscribe?token=${recipient.unsubscribe_token}"
+         style="color:#007bff; text-decoration:none;">
+         Unsubscribe
+      </a>
+    </p>
+  `);
+
+      // Footer locations if provided
       if (footerLocations.length) {
-        footer += '<p style="font-size: 12px; color: #666;">Our Locations:</p>';
+        footerParts.push(
+          `<p style="font-size: 12px; color: #666; margin: 10px 0 0;">Our Locations:</p>`
+        );
         footerLocations.forEach((loc) => {
-          footer += `<p style="fontwow-size: 12px; color: #666;">${loc.location}: ${loc.address}, ${loc.phone}</p>`;
+          footerParts.push(`
+        <p style="font-size: 12px; color: #666; margin: 2px 0;">
+          <strong>${loc.location}</strong>: ${loc.address}, ${loc.phone}
+        </p>
+      `);
         });
       }
 
+      const footer = footerParts.join("");
+
+      // Full centered template
+      const htmlTemplate = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>${subject}</title>
+      </head>
+      <body style="margin:0; padding:0; background:#f9f9f9; font-family:Arial,sans-serif;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td align="center" style="padding:40px 20px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" 
+                     style="background:#ffffff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.05); padding:30px; text-align:center;">
+                <tr>
+                  <td style="font-size:18px; line-height:1.6; color:#333333;">
+                    ${body}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top:20px; border-top:1px solid #eee;">
+                    ${footer}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+
       const params = {
         Destination: {
-          ToAddresses: [recipient.email], // Send individually to include unique unsubscribe link
+          ToAddresses: [recipient.email], // Send individually for unique unsubscribe
           CcAddresses: cc,
           BccAddresses: bcc,
         },
         Message: {
           Body: {
-            Html: { Charset: "UTF-8", Data: body + footer },
+            Html: { Charset: "UTF-8", Data: htmlTemplate },
             Text: {
               Charset: "UTF-8",
               Data:
@@ -224,20 +272,38 @@ const sendEmailAWS = async (req, res) => {
 //Unsubscribe
 const unsubscribeEmail = async (req, res) => {
   const { token } = req.query;
+
+  if (!token) {
+    return res.status(400).send("Invalid unsubscribe link");
+  }
+
   try {
+    //Find Contact By Token
     const { rows } = await client.query(
-      `UPDATE contacts SET unsubscribed = true WHERE unsubscribe_token = $1 RETURNING email`,
+      "SELECT contact_id, unsubscribed FROM contacts WHERE unsubscribe_token = $1",
       [token]
     );
-    if (rows.length) {
-      return res
-        .status(200)
-        .json({ success: true, message: `Unsubscribed ${rows[0].email}` });
+
+    if (rows.length === 0) {
+      return res.status(404).send("Contact not found");
     }
-    return res.status(404).json({ success: false, message: "Invalid token" });
+
+    const contact = rows[0];
+
+    if (contact.unsubscribed) {
+      return res.send("You are already unsubscribed ✅");
+    }
+
+    //Update Status
+    await client.query(
+      "UPDATE contacts SET unsubscribed = true WHERE contact_id = $1",
+      [contact.contact_id]
+    );
+
+    return res.send("You have been unsubscribed successfully 👋");
   } catch (error) {
-    console.error("Unsubscribe error:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("Unsubscribe error:", err);
+    return res.status(500).send("An error occurred while unsubscribing.");
   }
 };
 

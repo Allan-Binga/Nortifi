@@ -26,8 +26,15 @@ function NewEmail() {
     ccEmails: "",
     bccEmails: "",
 
-    // Conditions tab
-    conditions: "",
+    // Scheduling & Settings tab
+    send_type: "immediate", // "immediate" or "scheduled"
+    scheduled_at: "",
+    timezone: "Africa/Nairobi",
+    recurring_rule: "",
+    forceSend: false,
+    footerLocations: [],
+    tags: [],
+    exclude_unsubscribed: true,
   });
 
   // Fetch contacts on mount
@@ -49,12 +56,55 @@ function NewEmail() {
     fetchContacts();
   }, []);
 
-  const tabs = ["EMAIL", "RECIPIENTS", "ADVANCED", "CONDITIONS"];
+  const tabs = ["EMAIL", "RECIPIENTS", "ADVANCED", "SCHEDULING & SETTINGS"];
 
   const handleInputChange = (field, value) => {
     setEmailData((prev) => ({
       ...prev,
       [field]: value,
+    }));
+  };
+
+  const handleFooterLocationChange = (index, field, value) => {
+    const updatedLocations = [...emailData.footerLocations];
+    updatedLocations[index] = {
+      ...updatedLocations[index],
+      [field]: value,
+    };
+    setEmailData((prev) => ({
+      ...prev,
+      footerLocations: updatedLocations,
+    }));
+  };
+
+  const addFooterLocation = () => {
+    setEmailData((prev) => ({
+      ...prev,
+      footerLocations: [
+        ...prev.footerLocations,
+        { location: "", address: "", phone: "" },
+      ],
+    }));
+  };
+
+  const removeFooterLocation = (index) => {
+    const updatedLocations = emailData.footerLocations.filter(
+      (_, i) => i !== index
+    );
+    setEmailData((prev) => ({
+      ...prev,
+      footerLocations: updatedLocations,
+    }));
+  };
+
+  const handleTagsChange = (value) => {
+    const tagsArray = value
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
+    setEmailData((prev) => ({
+      ...prev,
+      tags: tagsArray,
     }));
   };
 
@@ -83,6 +133,10 @@ function NewEmail() {
       notify.error("Recipients are required");
       return false;
     }
+    if (emailData.send_type === "scheduled" && !emailData.scheduled_at) {
+      notify.error("Scheduled date/time is required for scheduled emails");
+      return false;
+    }
     return true;
   };
 
@@ -101,9 +155,9 @@ function NewEmail() {
         fromEmail: emailData.fromEmail,
         replyToEmail: emailData.replyToEmail,
         toEmails: emailData.recipients
-          .split(",") // split by commas
+          .split(",")
           .map((e) => e.trim())
-          .filter((e) => e.length > 0), // clean array
+          .filter((e) => e.length > 0),
         cc: emailData.ccEmails
           ? emailData.ccEmails
               .split(",")
@@ -116,17 +170,29 @@ function NewEmail() {
               .map((e) => e.trim())
               .filter((e) => e.length > 0)
           : [],
-        send_type: "immediate",
-        conditions: emailData.conditions,
+        send_type: emailData.send_type,
+        scheduled_at: emailData.scheduled_at || null,
+        timezone: emailData.timezone,
+        recurring_rule: emailData.recurring_rule || null,
+        filter: {
+          tags: emailData.tags,
+          exclude_unsubscribed: emailData.exclude_unsubscribed,
+        },
+        forceSend: emailData.forceSend,
+        footerLocations: emailData.footerLocations,
       };
 
       const response = await axios.post(
-        `${backend}/emails/send-email`,
+        `${backend}/emails/aws/send-email`,
         payload,
         { withCredentials: true }
       );
 
-      notify.success("Email sent successfully!");
+      notify.success(
+        emailData.send_type === "scheduled"
+          ? "Email scheduled successfully!"
+          : "Email sent successfully!"
+      );
       console.log("Campaign Response:", response.data);
 
       // Reset form after successful send
@@ -141,7 +207,14 @@ function NewEmail() {
         replyToEmail: "",
         ccEmails: "",
         bccEmails: "",
-        conditions: "",
+        send_type: "immediate",
+        scheduled_at: "",
+        timezone: "Africa/Nairobi",
+        recurring_rule: "",
+        forceSend: false,
+        footerLocations: [],
+        tags: [],
+        exclude_unsubscribed: true,
       });
       setCurrentTab(0);
     } catch (error) {
@@ -166,7 +239,14 @@ function NewEmail() {
       replyToEmail: "",
       ccEmails: "",
       bccEmails: "",
-      conditions: "",
+      send_type: "immediate",
+      scheduled_at: "",
+      timezone: "Africa/Nairobi",
+      recurring_rule: "",
+      forceSend: false,
+      footerLocations: [],
+      tags: [],
+      exclude_unsubscribed: true,
     });
     setCurrentTab(0);
     notify.info("Changes discarded");
@@ -230,8 +310,7 @@ function NewEmail() {
             onChange={(e) => handleInputChange("body", e.target.value)}
             placeholder="Hello John,
 
-Payment received for the TEAS 7 Study Package
-"
+Payment received for the TEAS 7 Study Package"
             rows="8"
             className="w-full p-4 resize-none focus:outline-none"
           />
@@ -241,7 +320,7 @@ Payment received for the TEAS 7 Study Package
       <div className="flex justify-end">
         <button
           onClick={handleNext}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-6 py-2 cursor-pointer bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           Next
         </button>
@@ -295,9 +374,43 @@ Payment received for the TEAS 7 Study Package
             rows="4"
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          {/* <button className="mt-2 text-blue-500 hover:text-blue-600 text-sm">
-            + Insert form fields
-          </button> */}
+        </div>
+
+        <div>
+          <label className="block text-gray-700 text-sm font-medium mb-2">
+            Tags{" "}
+            <span className="text-gray-500">
+              (Separate multiple tags with a comma)
+            </span>
+          </label>
+          <input
+            type="text"
+            value={emailData.tags.join(", ")}
+            onChange={(e) => handleTagsChange(e.target.value)}
+            placeholder="New Client, VIP, Premium"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <p className="text-gray-500 text-sm mt-1">
+            Tags help categorize and filter your email campaigns.
+          </p>
+        </div>
+
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="exclude_unsubscribed"
+            checked={emailData.exclude_unsubscribed}
+            onChange={(e) =>
+              handleInputChange("exclude_unsubscribed", e.target.checked)
+            }
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label
+            htmlFor="exclude_unsubscribed"
+            className="ml-2 block text-sm text-gray-700"
+          >
+            Exclude unsubscribed contacts
+          </label>
         </div>
       </div>
 
@@ -344,13 +457,6 @@ Payment received for the TEAS 7 Study Package
           placeholder="team@pioneerwriters.com"
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
-        {/* <div className="mt-2 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
-          <p className="text-blue-700 text-sm">
-            <i className="inline-block w-4 h-4 mr-1">ℹ️</i>
-            Some hosts do not allow "from email" to be overridden or replaced
-            due to spam issues.
-          </p>
-        </div> */}
       </div>
 
       <div>
@@ -409,23 +515,176 @@ Payment received for the TEAS 7 Study Package
     </div>
   );
 
-  const renderConditionsTab = () => (
+  const renderSchedulingTab = () => (
     <div className="space-y-6">
       <div>
         <label className="block text-gray-700 text-sm font-medium mb-2">
-          Email Conditions
+          Send Type
         </label>
-        <textarea
-          value={emailData.conditions}
-          onChange={(e) => handleInputChange("conditions", e.target.value)}
-          placeholder="Define conditions for when this email should be sent..."
-          rows="6"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        <div className="flex space-x-4">
+          <button
+            onClick={() => handleInputChange("send_type", "immediate")}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              emailData.send_type === "immediate"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Send Immediately
+          </button>
+          <button
+            onClick={() => handleInputChange("send_type", "scheduled")}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              emailData.send_type === "scheduled"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Schedule
+          </button>
+        </div>
+      </div>
+
+      {emailData.send_type === "scheduled" && (
+        <>
+          <div>
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Scheduled Date & Time *
+            </label>
+            <input
+              type="datetime-local"
+              value={emailData.scheduled_at}
+              onChange={(e) =>
+                handleInputChange("scheduled_at", e.target.value)
+              }
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Timezone
+            </label>
+            <select
+              value={emailData.timezone}
+              onChange={(e) => handleInputChange("timezone", e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+              <option value="America/New_York">America/New_York (EST)</option>
+              <option value="America/Los_Angeles">
+                America/Los_Angeles (PST)
+              </option>
+              <option value="Europe/London">Europe/London (GMT)</option>
+              <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Recurring Rule
+            </label>
+            <select
+              value={emailData.recurring_rule}
+              onChange={(e) =>
+                handleInputChange("recurring_rule", e.target.value)
+              }
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">No Recurring</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+        </>
+      )}
+
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          id="forceSend"
+          checked={emailData.forceSend}
+          onChange={(e) => handleInputChange("forceSend", e.target.checked)}
+          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
         />
-        <p className="text-gray-500 text-sm mt-1">
-          Set up conditional logic for when this email notification should be
-          triggered.
-        </p>
+        <label htmlFor="forceSend" className="ml-2 block text-sm text-gray-700">
+          Force send (bypass normal validation)
+        </label>
+      </div>
+
+      {/* Footer Locations Section */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <label className="block text-gray-700 text-sm font-medium">
+            Footer Locations
+          </label>
+          <button
+            type="button"
+            onClick={addFooterLocation}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+          >
+            + Add Location
+          </button>
+        </div>
+
+        {emailData.footerLocations.map((location, index) => (
+          <div
+            key={index}
+            className="p-4 border border-gray-200 rounded-lg mb-4 bg-gray-50"
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-medium text-gray-700">
+                Location {index + 1}
+              </h4>
+              <button
+                type="button"
+                onClick={() => removeFooterLocation(index)}
+                className="text-red-500 hover:text-red-700 text-sm"
+              >
+                Remove
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <input
+                type="text"
+                placeholder="Location Name"
+                value={location.location}
+                onChange={(e) =>
+                  handleFooterLocationChange(index, "location", e.target.value)
+                }
+                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="text"
+                placeholder="Address"
+                value={location.address}
+                onChange={(e) =>
+                  handleFooterLocationChange(index, "address", e.target.value)
+                }
+                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="text"
+                placeholder="Phone"
+                value={location.phone}
+                onChange={(e) =>
+                  handleFooterLocationChange(index, "phone", e.target.value)
+                }
+                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        ))}
+
+        {emailData.footerLocations.length === 0 && (
+          <p className="text-gray-500 text-sm">
+            No footer locations added. Click "Add Location" to include office
+            locations in your email footer.
+          </p>
+        )}
       </div>
 
       <div className="flex justify-between">
@@ -438,13 +697,19 @@ Payment received for the TEAS 7 Study Package
         <button
           onClick={handleSendEmail}
           disabled={loading}
-          className={`px-6 py-2 rounded-lg transition-colors ${
+          className={`px-6 py-2 rounded-lg transition-colors cursor-pointer ${
             loading
               ? "bg-gray-400 cursor-not-allowed"
+              : emailData.send_type === "scheduled"
+              ? "bg-orange-600 hover:bg-orange-700"
               : "bg-green-600 hover:bg-green-700"
           } text-white`}
         >
-          {loading ? "Sending..." : "Send Email"}
+          {loading
+            ? "Processing..."
+            : emailData.send_type === "scheduled"
+            ? "Schedule Email"
+            : "Send Email"}
         </button>
       </div>
     </div>
@@ -459,7 +724,7 @@ Payment received for the TEAS 7 Study Package
       case 2:
         return renderAdvancedTab();
       case 3:
-        return renderConditionsTab();
+        return renderSchedulingTab();
       default:
         return renderEmailTab();
     }

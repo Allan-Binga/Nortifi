@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { List, Contact, Mail, LogOut, Mails, Users } from "lucide-react";
 import Logo from "../assets/logo.png";
+import axios from "axios";
+import { notify } from "../utils/toast";
+import { backend } from "../server";
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,11 +34,25 @@ function Navbar() {
     },
   ];
 
-  const handleLogout = () => {
-    // clear any stored session or token
-    localStorage.removeItem("token");
-    // navigate back to login
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      const response = await axios.post(
+        `${backend}/auth/user/sign-out`,
+        {},
+        { withCredentials: true }
+      );
+      if (response.status === 200) {
+        document.cookie = "userMailMktSession=; Max-Age=0; path=/;";
+        localStorage.clear();
+        notify.success("Successfully logged out.");
+        setTimeout(() => navigate("/sign-in"), 2000);
+      } else {
+        notify.error("You are not logged in.");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      notify.error("Failed to log out.");
+    }
   };
 
   return (
@@ -71,7 +88,7 @@ function Navbar() {
           <div className="hidden md:flex items-center">
             <button
               onClick={handleLogout}
-              className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+              className="flex items-center cursor-pointer text-sm font-medium text-gray-600 hover:text-red-500 transition-colors duration-200"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Logout
