@@ -6,7 +6,7 @@ const { SendEmailCommand } = require("@aws-sdk/client-ses");
 const scheduleCampaigns = async () => {
   // Run every minute to check for due campaigns
   cron.schedule("* * * * *", async () => {
-    console.log("Cron starting...")
+    console.log("Cron starting...");
     try {
       const now = new Date();
       const { rows: campaigns } = await client.query(
@@ -48,7 +48,6 @@ const scheduleCampaigns = async () => {
 
         // --- Check if campaign should send ---
         let shouldSend = false;
-        const lastSent = campaign.last_sent || scheduled_at;
 
         const nowInTimezone = new Date(
           new Date().toLocaleString("en-US", {
@@ -57,20 +56,25 @@ const scheduleCampaigns = async () => {
         );
 
         if (recurring_rule) {
-          const lastSentDate = new Date(lastSent);
+          if (!campaign.last_sent) {
+            // First send → respect scheduled_at
+            shouldSend = nowInTimezone >= new Date(scheduled_at);
+          } else {
+            const lastSentDate = new Date(campaign.last_sent);
 
-          if (recurring_rule === "daily") {
-            shouldSend =
-              nowInTimezone >=
-              new Date(lastSentDate.getTime() + 24 * 60 * 60 * 1000);
-          } else if (recurring_rule === "weekly") {
-            shouldSend =
-              nowInTimezone >=
-              new Date(lastSentDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-          } else if (recurring_rule === "monthly") {
-            const monthLater = new Date(lastSentDate);
-            monthLater.setMonth(monthLater.getMonth() + 1);
-            shouldSend = nowInTimezone >= monthLater;
+            if (recurring_rule === "daily") {
+              shouldSend =
+                nowInTimezone >=
+                new Date(lastSentDate.getTime() + 24 * 60 * 60 * 1000);
+            } else if (recurring_rule === "weekly") {
+              shouldSend =
+                nowInTimezone >=
+                new Date(lastSentDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+            } else if (recurring_rule === "monthly") {
+              const monthLater = new Date(lastSentDate);
+              monthLater.setMonth(monthLater.getMonth() + 1);
+              shouldSend = nowInTimezone >= monthLater;
+            }
           }
         } else if (send_type === "scheduled" && now >= new Date(scheduled_at)) {
           shouldSend = true;

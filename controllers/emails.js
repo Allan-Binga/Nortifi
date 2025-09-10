@@ -3,6 +3,7 @@ const mg = require("../config/mailgunClient");
 const ses = require("../config/sesClient");
 const { SendEmailCommand } = require("@aws-sdk/client-ses");
 const crypto = require("crypto");
+const moment = require("moment-timezone");
 
 const generateUnsubscribeToken = () => crypto.randomBytes(32).toString("hex");
 
@@ -60,6 +61,11 @@ const sendEmailAWS = async (req, res) => {
         ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14)
       RETURNING campaign_id, scheduled_at
     `;
+
+    const utcScheduledAt = scheduled_at
+      ? moment.tz(scheduled_at, campaignTimezone || "UTC").toDate()
+      : null;
+
     const campaignRes = await client.query(insertCampaignSQL, [
       label || null,
       subject,
@@ -70,7 +76,7 @@ const sendEmailAWS = async (req, res) => {
       cc || [],
       bcc || [],
       userId,
-      scheduled_at ? new Date(scheduled_at) : null,
+      utcScheduledAt,
       send_type,
       campaignTimezone || null,
       recurring_rule || null,
