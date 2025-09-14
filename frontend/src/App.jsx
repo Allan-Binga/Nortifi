@@ -10,13 +10,14 @@ import SignIn from "./pages/SignIn";
 import Contact from "./pages/Contact";
 import NewEmail from "./pages/New-Email";
 import Emails from "./pages/Emails";
+import Landing from "./pages/Landing";
 
 function App() {
   return (
     <Router>
       <Toaster richColors position="top-right" />
       <Routes>
-        <Route path="/" element={<Navigate to="/sign-in" />} />
+        <Route path="/" element={<Landing />} />
         <Route path="/sign-up" element={<SignUp />} />
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/contacts" element={<Contact />} />
