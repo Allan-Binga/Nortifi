@@ -139,7 +139,7 @@ function SignIn() {
               <h1 className="text-xl font-extrabold text-writerTeal">
                 Login to proceed
               </h1>
-              <p className="text-gray-600 mt-2 text-xs">Sign up now</p>
+              <p className="text-gray-600 mt-2 text-xs">Sign in now</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
