@@ -22,6 +22,7 @@ app.use(express.json());
 const allowedOrigins = [
   "http://localhost:5173",
   "https://mail-marketing-system-77782bd73854.herokuapp.com",
+  "https://app.nortifi.com"
 ];
 
 const corsOptions = {
