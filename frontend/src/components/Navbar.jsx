@@ -60,7 +60,7 @@ function Navbar() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-24">
           {/* Logo Section */}
-          <Link to="/" className="flex items-center ml-0 cursor-pointer">
+          <Link to="/new-email" className="flex items-center ml-0 cursor-pointer">
             <img
               src={Logo}
               alt="Pioneer-Writers"

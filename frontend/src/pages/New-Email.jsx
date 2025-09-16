@@ -1,33 +1,34 @@
 import Navbar from "../components/Navbar";
 import BackgroundWaves from "../components/BackgroundWaves";
 import { useState, useEffect } from "react";
+import {
+  ArrowRight,
+  Trash2,
+  ArrowLeft,
+  Plus,
+  Calendar,
+  Send,
+} from "lucide-react";
 import axios from "axios";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
 
 function NewEmail() {
   const [currentTab, setCurrentTab] = useState(0);
-  const [contacts, setContacts] = useState({});
+  const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [emailData, setEmailData] = useState({
-    // Email tab
     label: "",
     subject: "",
     body: "",
-
-    // Recipients tab
-    recipientMode: "individual", // "individual" or "bulk"
+    recipientMode: "individual",
     recipients: "",
-
-    // Advanced tab
     fromName: "",
     fromEmail: "",
     replyToEmail: "",
     ccEmails: "",
     bccEmails: "",
-
-    // Scheduling & Settings tab
-    send_type: "immediate", // "immediate" or "scheduled"
+    send_type: "immediate",
     scheduled_at: "",
     timezone: "Africa/Nairobi",
     recurring_rule: "",
@@ -36,6 +37,7 @@ function NewEmail() {
     tags: [],
     exclude_unsubscribed: true,
   });
+  const [selectedContacts, setSelectedContacts] = useState([]); // New state for selected contact IDs
 
   // Fetch contacts on mount
   useEffect(() => {
@@ -56,7 +58,46 @@ function NewEmail() {
     fetchContacts();
   }, []);
 
-  const tabs = ["EMAIL", "RECIPIENTS", "ADVANCED", "SCHEDULING & SETTINGS"];
+  // Sync selectedContacts and recipients when recipientMode or exclude_unsubscribed changes
+  useEffect(() => {
+    if (emailData.recipientMode === "bulk") {
+      const filteredContacts = emailData.exclude_unsubscribed
+        ? contacts.filter((contact) => !contact.unsubscribed)
+        : contacts;
+      const newSelectedContacts = filteredContacts.map(
+        (contact) => contact.contact_id
+      );
+      setSelectedContacts(newSelectedContacts);
+      const newRecipients = filteredContacts
+        .map((contact) => contact.email)
+        .join(", ");
+      setEmailData((prev) => ({ ...prev, recipients: newRecipients }));
+    } else {
+      setSelectedContacts([]);
+    }
+  }, [emailData.recipientMode, emailData.exclude_unsubscribed, contacts]);
+
+  // Handle individual checkbox toggle
+  const handleContactToggle = (contactId) => {
+    setSelectedContacts((prev) => {
+      const isSelected = prev.includes(contactId);
+      let newSelected;
+      if (isSelected) {
+        newSelected = prev.filter((id) => id !== contactId);
+      } else {
+        newSelected = [...prev, contactId];
+      }
+      const selectedEmails = contacts
+        .filter((contact) => newSelected.includes(contact.contact_id))
+        .map((contact) => contact.email)
+        .join(", ");
+      setEmailData((prevData) => ({
+        ...prevData,
+        recipients: selectedEmails,
+      }));
+      return newSelected;
+    });
+  };
 
   const handleInputChange = (field, value) => {
     setEmailData((prev) => ({
@@ -195,7 +236,6 @@ function NewEmail() {
       );
       console.log("Campaign Response:", response.data);
 
-      // Reset form after successful send
       setEmailData({
         label: "",
         subject: "",
@@ -254,75 +294,71 @@ function NewEmail() {
 
   const renderEmailTab = () => (
     <div className="space-y-6">
+      {/* Label */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
-          Label
+        <label className="block text-xs font-bold text-slate-700 mb-2">
+          Label <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={emailData.label}
           onChange={(e) => handleInputChange("label", e.target.value)}
-          placeholder="Payment Receipt"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="e.g Welcome onboard"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                 focus:outline-none focus:ring-2 focus:ring-teal-500 
+                 focus:border-transparent transition duration-200"
         />
       </div>
 
+      {/* Subject */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
-          Subject *
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
+          Subject <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={emailData.subject}
           onChange={(e) => handleInputChange("subject", e.target.value)}
-          placeholder="Payment Received"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="e.g Onboarding"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200   
+                 focus:outline-none focus:ring-2 focus:ring-teal-500 
+                 focus:border-transparent transition duration-200"
         />
       </div>
 
+      {/* Body */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
-          Body *
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
+          Body <span className="text-red-500">*</span>
         </label>
-        <div className="border border-gray-300 rounded-lg">
-          <div className="flex space-x-1 p-2 border-b border-gray-200">
-            <button className="px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">
-              <span className="font-bold">B</span>
-            </button>
-            <button className="px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">
-              <span className="italic">I</span>
-            </button>
-            <button className="px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">
-              ≡
-            </button>
-            <button className="px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">
-              ≣
-            </button>
-            <button className="px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">
-              🔗
-            </button>
-            <button className="ml-auto px-3 py-1 text-blue-500 hover:bg-blue-50 rounded text-sm">
-              + Insert form fields
-            </button>
-          </div>
+        <div
+          className="rounded-lg shadow-sm border border-slate-200
+               focus-within:outline-none focus-within:ring-2 focus-within:ring-teal-500 
+               focus-within:border-transparent transition duration-200"
+        >
           <textarea
             value={emailData.body}
             onChange={(e) => handleInputChange("body", e.target.value)}
-            placeholder="Hello John,
-
-Payment received for the TEAS 7 Study Package"
+            placeholder={`Hello John Doe,\n\nWelcome to Nortifi!`}
             rows="8"
-            className="w-full p-4 resize-none focus:outline-none"
+            className="w-full p-4 resize-none bg-transparent 
+                 focus:outline-none focus:ring-0"
           />
         </div>
       </div>
 
+      {/* Next button */}
       <div className="flex justify-end">
         <button
           onClick={handleNext}
-          className="px-6 py-2 cursor-pointer bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+               bg-gradient-to-r from-teal-500 to-teal-600 
+               text-white text-base flex items-center gap-2
+               hover:from-teal-600 hover:to-teal-700 
+               transition duration-200"
         >
           Next
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     </div>
@@ -330,102 +366,238 @@ Payment received for the TEAS 7 Study Package"
 
   const renderRecipientsTab = () => (
     <div className="space-y-6">
-      <div>
-        <p className="text-gray-600 mb-4">
-          The default behavior is to send the email to the same recipients. If
-          you want to send this email to different recipients conditionally, you
-          can send individually.
-        </p>
+      {/* Description */}
+      <p className="text-sm text-slate-600 mb-4">
+        The default behavior is to send the email to the same recipients. If you
+        want to send this email to different recipients conditionally, you can
+        send individually.
+      </p>
 
-        <div className="flex space-x-4 mb-6">
-          <button
-            onClick={() => handleInputChange("recipientMode", "individual")}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-              emailData.recipientMode === "individual"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Individually
-          </button>
-          <button
-            onClick={() => handleInputChange("recipientMode", "bulk")}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-              emailData.recipientMode === "bulk"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Mass Sending
-          </button>
-        </div>
-
-        <div>
-          <label className="block text-gray-700 text-sm font-medium mb-2">
-            Recipients *{" "}
-            <span className="text-gray-500">
-              (Separate multiple emails with a comma)
-            </span>
-          </label>
-          <textarea
-            value={emailData.recipients}
-            onChange={(e) => handleInputChange("recipients", e.target.value)}
-            placeholder="team@pioneerwriter.com"
-            rows="4"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        <div>
-          <label className="block text-gray-700 text-sm font-medium mb-2">
-            Tags{" "}
-            <span className="text-gray-500">
-              (Separate multiple tags with a comma)
-            </span>
-          </label>
-          <input
-            type="text"
-            value={emailData.tags.join(", ")}
-            onChange={(e) => handleTagsChange(e.target.value)}
-            placeholder="New Client, VIP, Premium"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <p className="text-gray-500 text-sm mt-1">
-            Tags help categorize and filter your email campaigns.
-          </p>
-        </div>
-
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="exclude_unsubscribed"
-            checked={emailData.exclude_unsubscribed}
-            onChange={(e) =>
-              handleInputChange("exclude_unsubscribed", e.target.checked)
-            }
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label
-            htmlFor="exclude_unsubscribed"
-            className="ml-2 block text-sm text-gray-700"
-          >
-            Exclude unsubscribed contacts
-          </label>
-        </div>
+      {/* Recipient Mode Buttons */}
+      <div className="flex space-x-4 mb-6">
+        <button
+          onClick={() => handleInputChange("recipientMode", "individual")}
+          className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${
+            emailData.recipientMode === "individual"
+              ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          Individually
+        </button>
+        <button
+          onClick={() => handleInputChange("recipientMode", "bulk")}
+          className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${
+            emailData.recipientMode === "bulk"
+              ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          Mass Sending
+        </button>
       </div>
 
+      {/* Recipients */}
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
+          Recipients <span className="text-red-500">*</span>
+          {emailData.recipientMode === "individual" && (
+            <span className="text-slate-500 text-xs font-normal">
+              {" "}
+              (Separate multiple emails with a comma)
+            </span>
+          )}
+        </label>
+        {emailData.recipientMode === "individual" ? (
+          <div
+            className="rounded-lg shadow-sm border border-slate-200
+                       focus-within:outline-none focus-within:ring-2 focus-within:ring-teal-500 
+                       focus-within:border-transparent transition duration-200"
+          >
+            <textarea
+              value={emailData.recipients}
+              onChange={(e) => handleInputChange("recipients", e.target.value)}
+              placeholder="team@nortifi.com, john.doe@nortifi.com"
+              rows="4"
+              className="w-full p-4 resize-none bg-transparent 
+                         focus:outline-none focus:ring-0"
+            />
+          </div>
+        ) : (
+          <div className="border border-slate-200 rounded-lg shadow-sm">
+            {loading ? (
+              <p className="p-4 text-slate-500 text-sm">Loading contacts...</p>
+            ) : contacts.length === 0 ? (
+              <p className="p-4 text-slate-500 text-sm">
+                No contacts available. Please add contacts to proceed.
+              </p>
+            ) : (
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-sm text-slate-700">
+                  <thead>
+                    <tr className="bg-slate-50 sticky top-0">
+                      <th className="px-4 py-3 text-left font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedContacts.length ===
+                            contacts.filter(
+                              (contact) =>
+                                !emailData.exclude_unsubscribed ||
+                                !contact.unsubscribed
+                            ).length
+                          }
+                          onChange={() => {
+                            if (
+                              selectedContacts.length ===
+                              contacts.filter(
+                                (contact) =>
+                                  !emailData.exclude_unsubscribed ||
+                                  !contact.unsubscribed
+                              ).length
+                            ) {
+                              setSelectedContacts([]);
+                              setEmailData((prev) => ({
+                                ...prev,
+                                recipients: "",
+                              }));
+                            } else {
+                              const filteredContacts =
+                                emailData.exclude_unsubscribed
+                                  ? contacts.filter(
+                                      (contact) => !contact.unsubscribed
+                                    )
+                                  : contacts;
+                              const newSelected = filteredContacts.map(
+                                (contact) => contact.contact_id
+                              );
+                              setSelectedContacts(newSelected);
+                              setEmailData((prev) => ({
+                                ...prev,
+                                recipients: filteredContacts
+                                  .map((contact) => contact.email)
+                                  .join(", "),
+                              }));
+                            }
+                          }}
+                          className="w-4 h-4 text-teal-500 border-slate-200 rounded 
+                                     focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold">
+                        Email
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold">
+                        Phone
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contacts
+                      .filter(
+                        (contact) =>
+                          !emailData.exclude_unsubscribed ||
+                          !contact.unsubscribed
+                      )
+                      .map((contact) => (
+                        <tr
+                          key={contact.contact_id}
+                          className="border-t border-slate-200 hover:bg-slate-50"
+                        >
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedContacts.includes(
+                                contact.contact_id
+                              )}
+                              onChange={() =>
+                                handleContactToggle(contact.contact_id)
+                              }
+                              className="w-4 h-4 text-teal-500 border-slate-200 rounded 
+                                         focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+                            />
+                          </td>
+                          <td className="px-4 py-3">{contact.name}</td>
+                          <td className="px-4 py-3">{contact.email}</td>
+                          <td className="px-4 py-3">{contact.phone_number}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
+          Tags{" "}
+          <span className="text-slate-500 text-xs font-normal">
+            (Separate multiple tags with a comma)
+          </span>
+        </label>
+        <input
+          type="text"
+          value={emailData.tags.join(", ")}
+          onChange={(e) => handleTagsChange(e.target.value)}
+          placeholder="New Client, VIP, Premium"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                     focus:outline-none focus:ring-2 focus:ring-teal-500 
+                     focus:border-transparent transition duration-200"
+        />
+        <p className="text-slate-500 text-xs mt-1">
+          Tags help categorize and filter your email campaigns.
+        </p>
+      </div>
+
+      {/* Exclude Unsubscribed Checkbox */}
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          id="exclude_unsubscribed"
+          checked={emailData.exclude_unsubscribed}
+          onChange={(e) =>
+            handleInputChange("exclude_unsubscribed", e.target.checked)
+          }
+          className="w-4 h-4 text-teal-500 border-slate-200 rounded 
+                     focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+        />
+        <label
+          htmlFor="exclude_unsubscribed"
+          className="ml-2 block text-xs font-semibold text-slate-700"
+        >
+          Exclude unsubscribed contacts
+        </label>
+      </div>
+
+      {/* Navigation Buttons */}
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+                     bg-gradient-to-r from-slate-500 to-slate-600 
+                     text-white text-base flex items-center gap-2
+                     hover:from-slate-600 hover:to-slate-700 
+                     transition duration-200"
         >
+          <ArrowLeft className="w-5 h-5" />
           Previous
         </button>
         <button
           onClick={handleNext}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+                     bg-gradient-to-r from-teal-500 to-teal-600 
+                     text-white text-base flex items-center gap-2
+                     hover:from-teal-600 hover:to-teal-700 
+                     transition duration-200"
         >
           Next
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     </div>
@@ -433,8 +605,9 @@ Payment received for the TEAS 7 Study Package"
 
   const renderAdvancedTab = () => (
     <div className="space-y-6">
+      {/* From Name */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
           From Name
         </label>
         <input
@@ -442,74 +615,105 @@ Payment received for the TEAS 7 Study Package"
           value={emailData.fromName}
           onChange={(e) => handleInputChange("fromName", e.target.value)}
           placeholder="Pioneer Writers TEAS Dept."
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                   focus:outline-none focus:ring-2 focus:ring-teal-500 
+                   focus:border-transparent transition duration-200"
         />
       </div>
 
+      {/* From Email */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
           From Email
         </label>
         <input
           type="email"
           value={emailData.fromEmail}
           onChange={(e) => handleInputChange("fromEmail", e.target.value)}
-          placeholder="team@pioneerwriters.com"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="team@nortifi.com"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                   focus:outline-none focus:ring-2 focus:ring-teal-500 
+                   focus:border-transparent transition duration-200"
         />
       </div>
 
+      {/* Reply-to Email */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
           Reply-to Email
         </label>
         <input
           type="email"
           value={emailData.replyToEmail}
           onChange={(e) => handleInputChange("replyToEmail", e.target.value)}
-          placeholder="orders@pioneerwriters.com"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="orders@nortifi.com"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                   focus:outline-none focus:ring-2 focus:ring-teal-500 
+                   focus:border-transparent transition duration-200"
         />
       </div>
 
+      {/* CC Emails */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
-          CC Emails
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
+          CC Emails{" "}
+          <span className="text-slate-500 text-xs font-normal">
+            (Separate multiple emails with a comma)
+          </span>
         </label>
         <input
           type="text"
           value={emailData.ccEmails}
           onChange={(e) => handleInputChange("ccEmails", e.target.value)}
-          placeholder="pioneerwritersorders@gmail.com"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="support@nortifi.com, info@nortifi.com"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                   focus:outline-none focus:ring-2 focus:ring-teal-500 
+                   focus:border-transparent transition duration-200"
         />
       </div>
 
+      {/* BCC Emails */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
-          BCC Emails
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
+          BCC Emails{" "}
+          <span className="text-slate-500 text-xs font-normal">
+            (Separate multiple emails with a comma)
+          </span>
         </label>
         <input
           type="text"
           value={emailData.bccEmails}
           onChange={(e) => handleInputChange("bccEmails", e.target.value)}
-          placeholder="Enter BCC email here"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="admin@nortifi.com, backup@nortifi.com"
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                   focus:outline-none focus:ring-2 focus:ring-teal-500 
+                   focus:border-transparent transition duration-200"
         />
       </div>
 
+      {/* Navigation Buttons */}
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+                   bg-gradient-to-r from-slate-500 to-slate-600 
+                   text-white text-base flex items-center gap-2
+                   hover:from-slate-600 hover:to-slate-700 
+                   transition duration-200"
         >
+          <ArrowLeft className="w-5 h-5" />
           Previous
         </button>
         <button
           onClick={handleNext}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+                   bg-gradient-to-r from-teal-500 to-teal-600 
+                   text-white text-base flex items-center gap-2
+                   hover:from-teal-600 hover:to-teal-700 
+                   transition duration-200"
         >
           Next
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     </div>
@@ -517,27 +721,28 @@ Payment received for the TEAS 7 Study Package"
 
   const renderSchedulingTab = () => (
     <div className="space-y-6">
+      {/* Send Type */}
       <div>
-        <label className="block text-gray-700 text-sm font-medium mb-2">
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
           Send Type
         </label>
         <div className="flex space-x-4">
           <button
             onClick={() => handleInputChange("send_type", "immediate")}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${
               emailData.send_type === "immediate"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
             Send Immediately
           </button>
           <button
             onClick={() => handleInputChange("send_type", "scheduled")}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${
               emailData.send_type === "scheduled"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
             Schedule
@@ -547,9 +752,10 @@ Payment received for the TEAS 7 Study Package"
 
       {emailData.send_type === "scheduled" && (
         <>
+          {/* Scheduled Date & Time */}
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
-              Scheduled Date & Time *
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
+              Scheduled Date & Time <span className="text-red-500">*</span>
             </label>
             <input
               type="datetime-local"
@@ -557,18 +763,23 @@ Payment received for the TEAS 7 Study Package"
               onChange={(e) =>
                 handleInputChange("scheduled_at", e.target.value)
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                       focus:outline-none focus:ring-2 focus:ring-teal-500 
+                       focus:border-transparent transition duration-200"
             />
           </div>
 
+          {/* Timezone */}
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
               Timezone
             </label>
             <select
               value={emailData.timezone}
               onChange={(e) => handleInputChange("timezone", e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                       focus:outline-none focus:ring-2 focus:ring-teal-500 
+                       focus:border-transparent transition duration-200"
             >
               <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
               <option value="America/New_York">America/New_York (EST)</option>
@@ -581,8 +792,9 @@ Payment received for the TEAS 7 Study Package"
             </select>
           </div>
 
+          {/* Recurring Rule */}
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
               Recurring Rule
             </label>
             <select
@@ -590,7 +802,9 @@ Payment received for the TEAS 7 Study Package"
               onChange={(e) =>
                 handleInputChange("recurring_rule", e.target.value)
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                       focus:outline-none focus:ring-2 focus:ring-teal-500 
+                       focus:border-transparent transition duration-200"
             >
               <option value="">No Recurring</option>
               <option value="daily">Daily</option>
@@ -601,15 +815,20 @@ Payment received for the TEAS 7 Study Package"
         </>
       )}
 
+      {/* Force Send Checkbox */}
       <div className="flex items-center">
         <input
           type="checkbox"
           id="forceSend"
           checked={emailData.forceSend}
           onChange={(e) => handleInputChange("forceSend", e.target.checked)}
-          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          className="w-4 h-4 text-teal-500 border-slate-200 rounded 
+                   focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
         />
-        <label htmlFor="forceSend" className="ml-2 block text-sm text-gray-700">
+        <label
+          htmlFor="forceSend"
+          className="ml-2 block text-xs font-semibold text-slate-700"
+        >
           Force send (bypass normal validation)
         </label>
       </div>
@@ -617,31 +836,36 @@ Payment received for the TEAS 7 Study Package"
       {/* Footer Locations Section */}
       <div>
         <div className="flex justify-between items-center mb-4">
-          <label className="block text-gray-700 text-sm font-medium">
+          <label className="block text-xs font-semibold text-slate-700">
             Footer Locations
           </label>
           <button
             type="button"
             onClick={addFooterLocation}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+            className="px-4 py-2 rounded-lg shadow-sm 
+                     bg-gradient-to-r from-teal-500 to-teal-600 
+                     text-white text-sm font-medium 
+                     hover:from-teal-600 hover:to-teal-700 
+                     transition duration-200 flex items-center gap-2"
           >
-            + Add Location
+            <Plus className="w-4 h-4" />
+            Add Location
           </button>
         </div>
 
         {emailData.footerLocations.map((location, index) => (
           <div
             key={index}
-            className="p-4 border border-gray-200 rounded-lg mb-4 bg-gray-50"
+            className="p-4 border border-slate-200 rounded-lg mb-4 bg-slate-50"
           >
             <div className="flex justify-between items-center mb-3">
-              <h4 className="text-sm font-medium text-gray-700">
+              <h4 className="text-xs font-semibold text-slate-700">
                 Location {index + 1}
               </h4>
               <button
                 type="button"
                 onClick={() => removeFooterLocation(index)}
-                className="text-red-500 hover:text-red-700 text-sm"
+                className="text-red-500 hover:text-red-700 text-xs font-medium"
               >
                 Remove
               </button>
@@ -650,66 +874,88 @@ Payment received for the TEAS 7 Study Package"
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <input
                 type="text"
-                placeholder="Location Name"
+                placeholder="Location Name (e.g., Nairobi Office)"
                 value={location.location}
                 onChange={(e) =>
                   handleFooterLocationChange(index, "location", e.target.value)
                 }
-                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                         focus:outline-none focus:ring-2 focus:ring-teal-500 
+                         focus:border-transparent transition duration-200"
               />
               <input
                 type="text"
-                placeholder="Address"
+                placeholder="Address (e.g., 123 Main St, Nairobi)"
                 value={location.address}
                 onChange={(e) =>
                   handleFooterLocationChange(index, "address", e.target.value)
                 }
-                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                         focus:outline-none focus:ring-2 focus:ring-teal-500 
+                         focus:border-transparent transition duration-200"
               />
               <input
                 type="text"
-                placeholder="Phone"
+                placeholder="Phone (e.g., +254 123 456 789)"
                 value={location.phone}
                 onChange={(e) =>
                   handleFooterLocationChange(index, "phone", e.target.value)
                 }
-                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+                         focus:outline-none focus:ring-2 focus:ring-teal-500 
+                         focus:border-transparent transition duration-200"
               />
             </div>
           </div>
         ))}
 
         {emailData.footerLocations.length === 0 && (
-          <p className="text-gray-500 text-sm">
+          <p className="text-slate-500 text-xs">
             No footer locations added. Click "Add Location" to include office
             locations in your email footer.
           </p>
         )}
       </div>
 
+      {/* Navigation Buttons */}
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+                   bg-gradient-to-r from-slate-500 to-slate-600 
+                   text-white text-base flex items-center gap-2
+                   hover:from-slate-600 hover:to-slate-700 
+                   transition duration-200"
         >
+          <ArrowLeft className="w-5 h-5" />
           Previous
         </button>
         <button
           onClick={handleSendEmail}
           disabled={loading}
-          className={`px-6 py-2 rounded-lg transition-colors cursor-pointer ${
-            loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : emailData.send_type === "scheduled"
-              ? "bg-orange-600 hover:bg-orange-700"
-              : "bg-green-600 hover:bg-green-700"
-          } text-white`}
+          className={`px-8 py-3 cursor-pointer rounded-xl shadow-md 
+                   text-white text-base flex items-center gap-2
+                   transition duration-200 ${
+                     loading
+                       ? "bg-slate-400 cursor-not-allowed"
+                       : emailData.send_type === "scheduled"
+                       ? "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                       : "bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
+                   }`}
         >
-          {loading
-            ? "Processing..."
-            : emailData.send_type === "scheduled"
-            ? "Schedule Email"
-            : "Send Email"}
+          {loading ? (
+            "Processing..."
+          ) : emailData.send_type === "scheduled" ? (
+            <>
+              Schedule Email
+              <Calendar className="w-5 h-5" />
+            </>
+          ) : (
+            <>
+              Send Email
+              <Send className="w-5 h-5" />
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -730,6 +976,8 @@ Payment received for the TEAS 7 Study Package"
     }
   };
 
+  const tabs = ["EMAIL", "RECIPIENTS", "ADVANCED", "SCHEDULING & SETTINGS"];
+
   return (
     <div className="relative min-h-screen bg-white">
       <Navbar />
@@ -744,7 +992,12 @@ Payment received for the TEAS 7 Study Package"
                 <h2 className="text-xl font-semibold text-gray-800">
                   Add Email Notification
                 </h2>
-                <button className="text-gray-400 hover:text-gray-600">✕</button>
+                <button
+                  onClick={handleDiscardChanges}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
@@ -755,10 +1008,10 @@ Payment received for the TEAS 7 Study Package"
                   <button
                     key={tab}
                     onClick={() => setCurrentTab(index)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    className={`py-4 px-1 border-b-2 text-sm transition-colors ${
                       currentTab === index
-                        ? "border-blue-500 text-blue-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
+                        ? "border-teal-500 text-teal-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 cursor-pointer"
                     }`}
                   >
                     {tab}
@@ -774,9 +1027,14 @@ Payment received for the TEAS 7 Study Package"
             <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
               <button
                 onClick={handleDiscardChanges}
-                className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors"
+                className="px-5 py-2.5 flex items-center gap-2 rounded-lg shadow-sm cursor-pointer
+               bg-gradient-to-r from-red-500 to-red-600 
+               text-white font-medium uppercase tracking-wide
+               hover:from-red-600 hover:to-red-700 
+               transition duration-200"
               >
-                🗑️ DISCARD CHANGES
+                <Trash2 className="w-5 h-5" />
+                Discard Changes
               </button>
             </div>
           </div>
