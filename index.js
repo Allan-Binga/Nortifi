@@ -6,6 +6,7 @@ const cookieParser = require("cookie-parser");
 const authRoute = require("./routes/auth");
 const contactRoute = require("./routes/contacts");
 const emailsRoute = require("./routes/emails");
+const smtpRoute = require("./routes/smtp")
 const { scheduleCampaigns } = require("./config/cronScheduler");
 scheduleCampaigns();
 
@@ -45,6 +46,7 @@ app.use(cookieParser());
 app.use("/mail-marketing-system/v1/auth", authRoute);
 app.use("/mail-marketing-system/v1/contacts", contactRoute);
 app.use("/mail-marketing-system/v1/emails", emailsRoute);
+app.use("/mail-marketing-system/v1/smtp", smtpRoute)
 
 //Serve Static Files
 if (process.env.NODE_ENV === "production") {

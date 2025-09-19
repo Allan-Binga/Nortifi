@@ -6,6 +6,17 @@ const moment = require("moment-timezone");
 
 const generateUnsubscribeToken = () => crypto.randomBytes(32).toString("hex");
 
+// --- Decrypt AES password ---
+const decryptPassword = (encrypted) => {
+  const [ivHex, encryptedText] = encrypted.split(":");
+  const key = Buffer.from(process.env.SMTP_SECRET_KEY, "hex");
+  const iv = Buffer.from(ivHex, "hex");
+  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  let decrypted = decipher.update(encryptedText, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+};
+
 // AWS SES
 const sendEmailAWS = async (req, res) => {
   const userId = req.userId;
@@ -274,6 +285,215 @@ const sendEmailAWS = async (req, res) => {
   }
 };
 
+//Send Email with Nodemailer
+const sendEmail = async (req, res) => {
+  const userId = req.userId;
+  try {
+    const {
+      label,
+      subject,
+      body,
+      fromName,
+      fromEmail,
+      replyToEmail,
+      toEmails = [],
+      cc = [],
+      bcc = [],
+      send_type = "immediate",
+      scheduled_at = null,
+      timezone: campaignTimezone = null,
+      recurring_rule = null,
+      filter = {},
+      forceSend = false,
+      footerLocations = [],
+      smtpConfigId, // optional: which SMTP config to use
+    } = req.body;
+
+    if (!subject || !body) {
+      return res
+        .status(400)
+        .json({ success: false, message: "subject and body are required" });
+    }
+
+    // --- Fetch SMTP config ---
+    const smtpQuery = await client.query(
+      "SELECT * FROM smtp_configs WHERE user_id = $1 AND config_id = $2",
+      [userId, smtpConfigId]
+    );
+
+    if (!smtpQuery.rows.length) {
+      return res
+        .status(404)
+        .json({ success: false, message: "SMTP configuration not found" });
+    }
+
+    const smtpConfig = smtpQuery.rows[0];
+    const smtpPassword = decryptPassword(smtpConfig.smtp_password);
+
+    // --- Insert Campaign ---
+    const insertCampaignSQL = `
+      INSERT INTO campaigns
+        (label, subject, body, from_name, from_email, reply_to_email, cc, bcc, user_id, status, scheduled_at, send_type, timezone, recurring_rule, footer_locations)
+      VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14)
+      RETURNING campaign_id, scheduled_at
+    `;
+
+    const utcScheduledAt = scheduled_at
+      ? moment.tz(scheduled_at, campaignTimezone || "UTC").toDate()
+      : null;
+
+    const campaignRes = await client.query(insertCampaignSQL, [
+      label || null,
+      subject,
+      body,
+      fromName || "Nortify",
+      fromEmail || smtpConfig.from_address,
+      replyToEmail || fromEmail || smtpConfig.from_address,
+      cc || [],
+      bcc || [],
+      userId,
+      utcScheduledAt,
+      send_type,
+      campaignTimezone || null,
+      recurring_rule || null,
+      footerLocations ? JSON.stringify(footerLocations) : "[]",
+    ]);
+    const campaignId = campaignRes.rows[0].campaign_id;
+
+    // --- Resolve Recipients ---
+    const recipientsToSend = [];
+
+    for (const email of toEmails) {
+      let { rows } = await client.query(
+        "SELECT contact_id, unsubscribed, unsubscribe_token FROM contacts WHERE email = $1",
+        [email]
+      );
+
+      let contact_id;
+      let unsubscribed = false;
+      let unsubscribe_token;
+
+      if (rows.length > 0) {
+        contact_id = rows[0].contact_id;
+        unsubscribed = rows[0].unsubscribed;
+        unsubscribe_token = rows[0].unsubscribe_token;
+      } else {
+        unsubscribe_token = generateUnsubscribeToken();
+        const { rows: newContact } = await client.query(
+          `INSERT INTO contacts (email, unsubscribe_token) VALUES ($1, $2) RETURNING contact_id`,
+          [email, unsubscribe_token]
+        );
+        contact_id = newContact[0].contact_id;
+      }
+
+      if (!unsubscribed) {
+        recipientsToSend.push({ contact_id, email, unsubscribe_token });
+      } else {
+        await client.query(
+          `INSERT INTO campaign_recipients (campaign_id, contact_id, status, filter_reason) 
+           VALUES ($1,$2,'skipped','unsubscribed')`,
+          [campaignId, contact_id]
+        );
+      }
+    }
+
+    const shouldSendNow = send_type === "immediate" || forceSend;
+
+    if (!shouldSendNow) {
+      await client.query(
+        `UPDATE campaigns SET status = 'scheduled' WHERE campaign_id = $1`,
+        [campaignId]
+      );
+      for (const r of recipientsToSend) {
+        await client.query(
+          `INSERT INTO campaign_recipients (campaign_id, contact_id, status) VALUES ($1, $2, 'pending')`,
+          [campaignId, r.contact_id]
+        );
+      }
+      return res.status(200).json({
+        success: true,
+        message: "Campaign scheduled",
+        campaignId,
+        recipients_count: recipientsToSend.length,
+      });
+    }
+
+    // --- Nodemailer Transporter ---
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.smtp_host,
+      port: smtpConfig.smtp_port,
+      secure: smtpConfig.use_tls,
+      auth: {
+        user: smtpConfig.smtp_user,
+        pass: smtpPassword,
+      },
+    });
+
+    // --- Send Emails ---
+    for (const recipient of recipientsToSend) {
+      // Build footer
+      const footerParts = [
+        `<p style="font-size:12px;color:#666;margin:20px 0;">
+          Don’t want to receive these emails? 
+          <a href="http://localhost:6300/unsubscribe?token=${recipient.unsubscribe_token}" style="color:#007bff;">Unsubscribe</a>
+        </p>`,
+      ];
+
+      if (footerLocations.length) {
+        footerLocations.forEach((loc) => {
+          footerParts.push(
+            `<p style="font-size:12px;color:#666;margin:2px 0;">
+              <strong>${loc.location}</strong>: ${loc.address}, ${loc.phone}
+            </p>`
+          );
+        });
+      }
+
+      const htmlTemplate = `<div>${body}${footerParts.join("")}</div>`;
+
+      await transporter.sendMail({
+        from: {
+          name: fromName || "Nortify",
+          address: fromEmail || smtpConfig.from_address,
+        },
+        to: recipient.email,
+        cc,
+        bcc,
+        subject,
+        html: htmlTemplate,
+        text: body.replace(/<\/?[^>]+(>|$)/g, ""),
+        replyTo: replyToEmail || fromEmail || smtpConfig.from_address,
+      });
+
+      await client.query(
+        `INSERT INTO campaign_recipients (campaign_id, contact_id, status, sent_at) 
+         VALUES ($1, $2, 'sent', NOW())`,
+        [campaignId, recipient.contact_id]
+      );
+    }
+
+    await client.query(
+      `UPDATE campaigns SET status = 'sent' WHERE campaign_id = $1`,
+      [campaignId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Campaign sent to ${recipientsToSend.length} recipients.`,
+      campaignId,
+      recipients: recipientsToSend.map((r) => r.email),
+    });
+  } catch (error) {
+    console.error("Error in sendEmail:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send emails",
+      error: error.message,
+    });
+  }
+};
+
 //Unsubscribe
 const unsubscribeEmail = async (req, res) => {
   const { token } = req.query;
@@ -338,9 +558,47 @@ const getEmails = async (req, res) => {
   }
 };
 
+// Fetch Session Recipients
+const getCampaignRecipients = async (req, res) => {
+  try {
+    const { campaignId, sentAt } = req.query;
+
+    if (!campaignId || !sentAt) {
+      return res.status(400).json({
+        error: "campaignId and sentAt query params are required",
+      });
+    }
+
+    const query = `
+      SELECT cr.id, cr.campaign_id, cr.contact_id, cr.status, cr.sent_at,
+             c.email
+      FROM campaign_recipients cr
+      JOIN contacts c ON cr.contact_id = c.id
+      WHERE cr.campaign_id = $1
+        AND cr.sent_at = $2
+      ORDER BY cr.id ASC
+    `;
+
+    const values = [campaignId, sentAt];
+
+    const { rows } = await client.query(query, values);
+
+    return res.status(200).json({
+      campaignId,
+      sentAt,
+      recipients: rows,
+    });
+  } catch (error) {
+    console.error("Error fetching campaign recipients:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 module.exports = {
+  sendEmail,
   unsubscribeEmail,
   getEmailCampaigns,
   getEmails,
   sendEmailAWS,
+  getCampaignRecipients,
 };
