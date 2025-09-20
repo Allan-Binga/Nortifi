@@ -7,6 +7,7 @@ const authRoute = require("./routes/auth");
 const contactRoute = require("./routes/contacts");
 const emailsRoute = require("./routes/emails");
 const smtpRoute = require("./routes/smtp")
+const dashboardRoute = require("./routes/dashboard")
 const { scheduleCampaigns } = require("./config/cronScheduler");
 scheduleCampaigns();
 
@@ -47,6 +48,7 @@ app.use("/mail-marketing-system/v1/auth", authRoute);
 app.use("/mail-marketing-system/v1/contacts", contactRoute);
 app.use("/mail-marketing-system/v1/emails", emailsRoute);
 app.use("/mail-marketing-system/v1/smtp", smtpRoute)
+app.use("/mail-marketing-system/v1/dashboard", dashboardRoute)
 
 //Serve Static Files
 if (process.env.NODE_ENV === "production") {

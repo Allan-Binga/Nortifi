@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Contact, Mail, LogOut, Mails, Users, Server } from "lucide-react";
+import {
+  Mail,
+  LogOut,
+  Mails,
+  Users,
+  Server,
+  ChevronDown,
+  Home,
+} from "lucide-react";
 import Logo from "../assets/logo.png";
 import axios from "axios";
 import { notify } from "../utils/toast";
@@ -8,14 +16,26 @@ import { backend } from "../server";
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
   const navigate = useNavigate();
 
-  // Flattened navigation items
+  const toggleDropdown = (name) => {
+    setActiveDropdown(activeDropdown === name ? null : name);
+  };
+
   const navItems = [
     {
+      name: "Home",
+      path: "/home",
+      icon: <Home className="w-4 h-4 mr-2" />,
+    },
+    {
       name: "SMTP",
-      path: "/smtp-configuration",
       icon: <Server className="w-4 h-4 mr-2" />,
+      subItems: [
+        { name: "New Server", path: "/register-smtp" },
+        { name: "SMTP Servers", path: "/smtp-configuration" },
+      ],
     },
     {
       name: "Send Email",
@@ -31,11 +51,6 @@ function Navbar() {
       name: "All Contacts",
       path: "/contacts",
       icon: <Users className="w-4 h-4 mr-2" />,
-    },
-    {
-      name: "Create Contact",
-      path: "/contacts",
-      icon: <Contact className="w-4 h-4 mr-2" />,
     },
   ];
 
@@ -65,29 +80,59 @@ function Navbar() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-24">
           {/* Logo Section */}
-          <Link
-            to="/new-email"
-            className="flex items-center ml-0 cursor-pointer"
-          >
+          <Link to="/home" className="flex items-center cursor-pointer">
             <img
               src={Logo}
-              alt="Pioneer-Writers"
+              alt="MailMkt"
               className="h-10 w-auto sm:h-12 lg:h-14 object-contain"
             />
           </Link>
 
-          {/* Navigation Items */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center flex-1">
             <div className="flex space-x-4 lg:space-x-6">
               {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className="text-gray-600 hover:text-gray-900 transition-colors duration-200 text-sm font-medium flex items-center"
-                >
-                  {item.icon}
-                  {item.name}
-                </Link>
+                <div key={item.name} className="relative">
+                  {item.subItems ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => toggleDropdown(item.name)}
+                        className="text-gray-600 hover:text-gray-900 transition-colors duration-200 text-sm font-medium flex items-center cursor-pointer"
+                      >
+                        {item.icon}
+                        {item.name}
+                        <ChevronDown
+                          className={`ml-1 w-4 h-4 transition-transform duration-200 ${
+                            activeDropdown === item.name ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+                      {activeDropdown === item.name && (
+                        <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 py-2">
+                          {item.subItems.map((sub) => (
+                            <Link
+                              key={sub.name}
+                              to={sub.path}
+                              className="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-amber-100 hover:text-gray-900 cursor-pointer"
+                              onClick={() => setActiveDropdown(null)}
+                            >
+                              {sub.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Link
+                      to={item.path}
+                      className="text-gray-600 hover:text-gray-900 transition-colors duration-200 text-sm font-medium flex items-center"
+                    >
+                      {item.icon}
+                      {item.name}
+                    </Link>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -107,7 +152,7 @@ function Navbar() {
           <div className="md:hidden flex items-center">
             <button
               type="button"
-              className="text-gray-600 hover:text-gray-900 focus:outline-none"
+              className="text-gray-600 hover:text-gray-900"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               <svg
@@ -115,7 +160,6 @@ function Navbar() {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
               >
                 <path
                   strokeLinecap="round"
@@ -134,31 +178,66 @@ function Navbar() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden bg-white border-t border-slate-100">
-            <div className="px-4 py-2 space-y-2">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className="flex items-center text-sm text-gray-600 hover:text-gray-900 py-2 transition-colors duration-200"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {item.icon}
-                  {item.name}
-                </Link>
-              ))}
-              {/* Logout (mobile) */}
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  handleLogout();
-                }}
-                className="flex items-center w-full text-sm text-gray-600 hover:text-gray-900 py-2 transition-colors duration-200"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </button>
-            </div>
+          <div className="md:hidden bg-white border-t border-slate-100 py-2 px-4">
+            {navItems.map((item) => (
+              <div key={item.name}>
+                {item.subItems ? (
+                  <>
+                    <div
+                      className="flex items-center text-sm text-gray-600 py-2 cursor-pointer"
+                      onClick={() =>
+                        toggleDropdown(
+                          activeDropdown === item.name ? null : item.name
+                        )
+                      }
+                    >
+                      {item.icon}
+                      {item.name}
+                      <ChevronDown
+                        className={`ml-1 w-4 h-4 transition-transform duration-200 ${
+                          activeDropdown === item.name ? "rotate-180" : ""
+                        }`}
+                      />
+                    </div>
+                    {activeDropdown === item.name && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {item.subItems.map((sub) => (
+                          <Link
+                            key={sub.name}
+                            to={sub.path}
+                            className="block text-sm text-gray-600 hover:text-gray-900"
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            {sub.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    to={item.path}
+                    className="flex items-center text-sm text-gray-600 hover:text-gray-900 py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.icon}
+                    {item.name}
+                  </Link>
+                )}
+              </div>
+            ))}
+
+            {/* Logout (mobile) */}
+            <button
+              onClick={() => {
+                setIsMenuOpen(false);
+                handleLogout();
+              }}
+              className="flex items-center w-full text-sm text-gray-600 hover:text-red-500 py-2"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </button>
           </div>
         )}
       </div>

@@ -24,7 +24,6 @@ function NewEmail() {
     recipientMode: "individual",
     recipients: "",
     fromName: "",
-    fromEmail: "",
     replyToEmail: "",
     ccEmails: "",
     bccEmails: "",
@@ -193,7 +192,6 @@ function NewEmail() {
         subject: emailData.subject,
         body: emailData.body,
         fromName: emailData.fromName,
-        fromEmail: emailData.fromEmail,
         replyToEmail: emailData.replyToEmail,
         toEmails: emailData.recipients
           .split(",")
@@ -224,7 +222,7 @@ function NewEmail() {
       };
 
       const response = await axios.post(
-        `${backend}/emails/aws/send-email`,
+        `${backend}/emails/smtp/send-email`,
         payload,
         { withCredentials: true }
       );
@@ -243,7 +241,6 @@ function NewEmail() {
         recipientMode: "individual",
         recipients: "",
         fromName: "",
-        fromEmail: "",
         replyToEmail: "",
         ccEmails: "",
         bccEmails: "",
@@ -351,7 +348,7 @@ function NewEmail() {
       <div className="flex justify-end">
         <button
           onClick={handleNext}
-          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
                bg-gradient-to-r from-teal-500 to-teal-600 
                text-white text-base flex items-center gap-2
                hover:from-teal-600 hover:to-teal-700 
@@ -579,7 +576,7 @@ function NewEmail() {
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+          className="px-8 py-3 cursor-pointer rounded-md shadow-md 
                      bg-gradient-to-r from-slate-500 to-slate-600 
                      text-white text-base flex items-center gap-2
                      hover:from-slate-600 hover:to-slate-700 
@@ -590,7 +587,7 @@ function NewEmail() {
         </button>
         <button
           onClick={handleNext}
-          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+          className="px-8 py-3 cursor-pointer rounded-md shadow-md 
                      bg-gradient-to-r from-teal-500 to-teal-600 
                      text-white text-base flex items-center gap-2
                      hover:from-teal-600 hover:to-teal-700 
@@ -615,22 +612,6 @@ function NewEmail() {
           value={emailData.fromName}
           onChange={(e) => handleInputChange("fromName", e.target.value)}
           placeholder="Pioneer Writers TEAS Dept."
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                   focus:outline-none focus:ring-2 focus:ring-teal-500 
-                   focus:border-transparent transition duration-200"
-        />
-      </div>
-
-      {/* From Email */}
-      <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-2">
-          From Email
-        </label>
-        <input
-          type="email"
-          value={emailData.fromEmail}
-          onChange={(e) => handleInputChange("fromEmail", e.target.value)}
-          placeholder="team@nortifi.com"
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
                    focus:outline-none focus:ring-2 focus:ring-teal-500 
                    focus:border-transparent transition duration-200"
@@ -695,7 +676,7 @@ function NewEmail() {
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
                    bg-gradient-to-r from-slate-500 to-slate-600 
                    text-white text-base flex items-center gap-2
                    hover:from-slate-600 hover:to-slate-700 
@@ -706,7 +687,7 @@ function NewEmail() {
         </button>
         <button
           onClick={handleNext}
-          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
                    bg-gradient-to-r from-teal-500 to-teal-600 
                    text-white text-base flex items-center gap-2
                    hover:from-teal-600 hover:to-teal-700 
@@ -921,7 +902,7 @@ function NewEmail() {
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-8 py-3 cursor-pointer rounded-xl shadow-md 
+          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
                    bg-gradient-to-r from-slate-500 to-slate-600 
                    text-white text-base flex items-center gap-2
                    hover:from-slate-600 hover:to-slate-700 
@@ -933,7 +914,7 @@ function NewEmail() {
         <button
           onClick={handleSendEmail}
           disabled={loading}
-          className={`px-8 py-3 cursor-pointer rounded-xl shadow-md 
+          className={`px-8 py-3 cursor-pointer rounded-lg shadow-md 
                    text-white text-base flex items-center gap-2
                    transition duration-200 ${
                      loading
@@ -979,9 +960,8 @@ function NewEmail() {
   const tabs = ["EMAIL", "RECIPIENTS", "ADVANCED", "SCHEDULING & SETTINGS"];
 
   return (
-    <div className="relative min-h-screen bg-white">
+    <div className="relative min-h-screen bg-gray-100">
       <Navbar />
-      <BackgroundWaves />
 
       <div className="relative z-10 container mx-auto px-4 py-8 pt-30">
         <div className="max-w-4xl mx-auto">

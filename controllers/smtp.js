@@ -16,10 +16,11 @@ const encryptPassword = (text) => {
 const registerSMTPServer = async (req, res) => {
   const userId = req.userId;
   try {
-    const { name, smtpUser, smtpPassword, fromAddress } = req.body;
+    const { name, smtpUser, smtpPassword, fromAddress, host, port, secure } =
+      req.body;
 
     // Validate required fields
-    if (!smtpUser|| !smtpPassword || !fromAddress) {
+    if (!smtpUser || !smtpPassword || !fromAddress) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -42,21 +43,32 @@ const registerSMTPServer = async (req, res) => {
       "zoho.com": { host: "smtp.zoho.com", port: 465, secure: true },
     };
 
-    // Extract domain and pick provider config
-    const domain = smtpUser.split("@")[1];
-    const providerConfiguration = smtpProviders[domain];
+    // Use provided host if given, else fall back to provider map
+    let smtpHost = host;
+    let smtpPort = port;
+    let smtpSecure = secure;
 
-    if (!providerConfiguration) {
-      return res.status(400).json({ error: "Unsupported email provider" });
+    if (!smtpHost) {
+      const domain = smtpUser.split("@")[1];
+      const providerConfiguration = smtpProviders[domain];
+      if (!providerConfiguration) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Unsupported email provider. Please provide host/port manually.",
+          });
+      }
+      smtpHost = providerConfiguration.host;
+      smtpPort = providerConfiguration.port;
+      smtpSecure = providerConfiguration.secure;
     }
-
-    const { host, port, secure } = providerConfiguration;
 
     // Verify credentials with Nodemailer
     const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
       auth: {
         user: smtpUser,
         pass: smtpPassword,
@@ -88,11 +100,11 @@ const registerSMTPServer = async (req, res) => {
     const values = [
       userId,
       name || null,
-      host,
-      port,
+      smtpHost,
+      smtpPort,
       smtpUser,
       encryptedPassword,
-      secure,
+      smtpSecure,
       fromAddress,
     ];
 

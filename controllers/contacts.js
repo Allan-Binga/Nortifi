@@ -18,15 +18,16 @@ const getContacts = async (req, res) => {
 const createContact = async (req, res) => {
   try {
     const { name, email, phoneNumber, tag, website } = req.body;
+    const userId = req.userId;
 
     // Generate unique unsubscribe token
     const unsubscribeToken = crypto.randomBytes(20).toString("hex");
 
     const result = await client.query(
-      `INSERT INTO contacts (phone_number, email, name, tag, website, unsubscribe_token)
-       VALUES ($1, $2, $3, COALESCE($4, 'New Client'), $5, $6)
+      `INSERT INTO contacts (user_id, phone_number, email, name, tag, website, unsubscribe_token)
+       VALUES ($1, $2, $3, $4, COALESCE($5, 'New Client'), $6, $7)
        RETURNING *`,
-      [phoneNumber, email, name, tag, website, unsubscribeToken]
+      [userId, phoneNumber, email, name, tag, website, unsubscribeToken]
     );
 
     res.status(201).json({
@@ -38,6 +39,7 @@ const createContact = async (req, res) => {
     res.status(500).json({ error: "Failed to create contact" });
   }
 };
+
 // Update a contact
 const updateContact = async (req, res) => {
   try {

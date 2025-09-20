@@ -1,8 +1,8 @@
 import Navbar from "../components/Navbar";
-import BackgroundWaves from "../components/BackgroundWaves";
 import { useState, useEffect } from "react";
-import { Mail, Calendar, User, Eye, X } from "lucide-react";
+import { Mail, Calendar, User, Eye, X, Send } from "lucide-react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import { backend } from "../server";
 
 function Emails() {
@@ -24,15 +24,21 @@ function Emails() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-white">
+    <div className="relative min-h-screen bg-gray-100">
       <Navbar />
-      <BackgroundWaves />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 mt-16">
-        <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 ">
-          <Mail className="w-6 h-6 text-indigo-500" />
-          All Email Campaigns
-        </h1>
+      <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 mt-18">
+        <div className="text-center mb-12">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+              <Mail className="w-8 h-8 text-indigo-600" />
+            </div>
+          </div>
+          <h1 className="text-4xl font-light mb-4">Your Email Campaigns</h1>
+          <p className="text-lg text-gray-600 leading-relaxed">
+            Easily manage your campaigns at a go.
+          </p>
+        </div>
 
         <div className="space-y-4">
           {campaigns.map((c) => (
@@ -70,12 +76,16 @@ function Emails() {
         </div>
 
         {campaigns.length === 0 && (
-          <div className="text-center py-12">
-            <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">No email campaigns found</p>
-            <p className="text-gray-400 text-sm">
-              Create your first campaign to see it here
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">
+              No campaigns avalable at the moment.
             </p>
+            <Link to="/new-email">
+              <button className="bg-gray-900 text-white px-6 py-3 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center space-x-2 hover:scale-105 cursor-pointer mx-auto">
+                <span>Start by sending campaigns</span>
+                <Send className="w-4 h-4" />
+              </button>
+            </Link>
           </div>
         )}
       </div>

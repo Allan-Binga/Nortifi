@@ -36,13 +36,6 @@ function Landing() {
     };
   }, []);
 
-  const handleEmailSubmit = () => {
-    if (email) {
-      console.log("Email submitted:", email);
-      setEmail("");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Navigation */}

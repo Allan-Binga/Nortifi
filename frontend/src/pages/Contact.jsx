@@ -210,7 +210,8 @@ function Contact() {
   };
 
   const handleDelete = async (contact_id) => {
-    if (!window.confirm("Are you sure you want to delete this contact?")) return;
+    if (!window.confirm("Are you sure you want to delete this contact?"))
+      return;
     try {
       await axios.delete(`${backend}/contacts/delete-contact/${contact_id}`, {
         withCredentials: true,
@@ -239,9 +240,9 @@ function Contact() {
   };
 
   return (
-    <div className="relative min-h-screen bg-white">
+    <div className="relative min-h-screen bg-gray-100">
       <Navbar />
-      <BackgroundWaves />
+
       <div className="relative z-10 container mx-auto px-4 py-8 pt-30 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -314,7 +315,9 @@ function Contact() {
                       placeholder="Enter email address"
                     />
                     {errors.email && (
-                      <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.email}
+                      </p>
                     )}
                   </div>
 
@@ -413,7 +416,7 @@ function Contact() {
                     <button
                       type="button"
                       onClick={handleCancelEdit}
-                      className="px-8 py-3 cursor-pointer rounded-xl shadow-md bg-gradient-to-r from-slate-500 to-slate-600 text-white text-base flex items-center gap-2 hover:from-slate-600 hover:to-slate-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-8 py-3 cursor-pointer rounded-lg shadow-md bg-gradient-to-r from-slate-500 to-slate-600 text-white text-base flex items-center gap-2 hover:from-slate-600 hover:to-slate-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={isSubmitting}
                     >
                       <X className="w-5 h-5" />
@@ -422,7 +425,7 @@ function Contact() {
                   )}
                   <button
                     type="submit"
-                    className="px-8 py-3 cursor-pointer rounded-xl shadow-md bg-gradient-to-r from-teal-500 to-teal-600 text-white text-base flex items-center gap-2 hover:from-teal-600 hover:to-teal-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-3 cursor-pointer rounded-lg shadow-md bg-gradient-to-r from-teal-500 to-teal-600 text-white text-base flex items-center gap-2 hover:from-teal-600 hover:to-teal-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
@@ -443,7 +446,7 @@ function Contact() {
           </div>
 
           {/* Contacts Table */}
-          <div className="bg-white rounded-xl shadow-lg mt-8">
+          <div className="bg-white rounded-lg shadow-lg mt-8">
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800">
                 Contacts ({contacts.length})

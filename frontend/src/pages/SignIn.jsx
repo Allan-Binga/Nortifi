@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { notify } from "../utils/toast";
 import { Mail, Lock, Eye, EyeOff, X } from "lucide-react";
 import { backend } from "../server";
+import Spinner from "../components/Spinner";
 
 function SignIn() {
   const [email, setEmail] = useState("");
@@ -74,16 +75,17 @@ function SignIn() {
         throw new Error(data.message || "Login failed");
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       notify.success("Login successful.");
-      setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 1500);
+      navigate("/home");
     } catch (error) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       const msg = error.message?.toLowerCase?.();
       if (msg?.includes("already logged in")) {
         notify.info("Already logged in");
         navigate("/emails");
       } else {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         notify.error(error.message || "Something went wrong");
       }
     } finally {
@@ -142,119 +144,128 @@ function SignIn() {
               <p className="text-gray-600 mt-2 text-xs">Sign in now</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email */}
-              <div className="relative">
-                <Mail className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="Email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  required
-                  className={`w-full pl-12 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${
-                    fieldErrors.email
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-gray-100"
-                  }`}
-                />
-                {fieldErrors.email && (
-                  <p className="text-red-500 text-xs mt-1 ml-2">
-                    {fieldErrors.email}
-                  </p>
-                )}
-              </div>
+            {isLoading ? (
+              <>
+                <Spinner size="medium" className="mx-auto" />
+                <p className="text-center mt-3 text-gray-600 text-sm">
+                  Signing in...
+                </p>
+              </>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Email */}
+                <div className="relative">
+                  <Mail className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    required
+                    className={`w-full pl-12 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${
+                      fieldErrors.email
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-gray-100"
+                    }`}
+                  />
+                  {fieldErrors.email && (
+                    <p className="text-red-500 text-xs mt-1 ml-2">
+                      {fieldErrors.email}
+                    </p>
+                  )}
+                </div>
 
-              {/* Password */}
-              <div className="relative">
-                <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  required
-                  className={`w-full pl-12 pr-10 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${
-                    fieldErrors.password
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-gray-100"
-                  }`}
-                />
+                {/* Password */}
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    required
+                    className={`w-full pl-12 pr-10 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${
+                      fieldErrors.password
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-gray-100"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-3.5 text-gray-400"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                  {fieldErrors.password && (
+                    <p className="text-red-500 text-xs mt-1 ml-2">
+                      {fieldErrors.password}
+                    </p>
+                  )}
+                </div>
+
+                {/* Forgot Password */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="text-sm text-writerTeal hover:underline"
+                    onClick={() => setShowForgotModal(true)}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                {/* Submit */}
                 <button
-                  type="button"
-                  className="absolute right-4 top-3.5 text-gray-400"
-                  onClick={() => setShowPassword((prev) => !prev)}
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-slate-800 text-white py-2.5 rounded-full font-medium hover:bg-slate-700 transition disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                  {isLoading ? (
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    "Sign In"
                   )}
                 </button>
-                {fieldErrors.password && (
-                  <p className="text-red-500 text-xs mt-1 ml-2">
-                    {fieldErrors.password}
-                  </p>
-                )}
-              </div>
 
-              {/* Forgot Password */}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="text-sm text-writerTeal hover:underline"
-                  onClick={() => setShowForgotModal(true)}
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-slate-800 text-white py-2.5 rounded-full font-medium hover:bg-slate-700 transition disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
-              >
-                {isLoading ? (
-                  <svg
-                    className="animate-spin h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                ) : (
-                  "Sign In"
-                )}
-              </button>
-
-              {/* Footer */}
-              <p className="text-center text-xs text-gray-500">
-                Don't have an account?{" "}
-                <Link to="/sign-up" className="underline underline-offset-2">
-                  Sign Up
-                </Link>
-              </p>
-            </form>
+                {/* Footer */}
+                <p className="text-center text-xs text-gray-500">
+                  Don't have an account?{" "}
+                  <Link to="/sign-up" className="underline underline-offset-2">
+                    Sign Up
+                  </Link>
+                </p>
+              </form>
+            )}
           </div>
         </div>
       </div>
