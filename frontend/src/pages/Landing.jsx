@@ -84,10 +84,10 @@ function Landing() {
             </div>
 
             <h1 className="text-5xl md:text-7xl font-light mb-6 leading-tight">
-              Email marketing
+              Nortifi
               <br />
               <span className="font-bold bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
-                simplified
+                solutions
               </span>
             </h1>
 
@@ -118,7 +118,7 @@ function Landing() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-white">
+      {/* <section className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-12">
             <div className="text-center">
@@ -137,7 +137,7 @@ function Landing() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Features Section */}
       <section id="features" className="py-20">

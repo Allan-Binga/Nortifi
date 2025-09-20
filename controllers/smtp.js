@@ -16,10 +16,10 @@ const encryptPassword = (text) => {
 const registerSMTPServer = async (req, res) => {
   const userId = req.userId;
   try {
-    const { name, smtp_user, smtp_password, from_address } = req.body;
+    const { name, smtpUser, smtpPassword, fromAddress } = req.body;
 
     // Validate required fields
-    if (!smtp_user || !smtp_password || !from_address) {
+    if (!smtpUser|| !smtpPassword || !fromAddress) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -43,7 +43,7 @@ const registerSMTPServer = async (req, res) => {
     };
 
     // Extract domain and pick provider config
-    const domain = smtp_user.split("@")[1];
+    const domain = smtpUser.split("@")[1];
     const providerConfiguration = smtpProviders[domain];
 
     if (!providerConfiguration) {
@@ -58,8 +58,8 @@ const registerSMTPServer = async (req, res) => {
       port,
       secure,
       auth: {
-        user: smtp_user,
-        pass: smtp_password,
+        user: smtpUser,
+        pass: smtpPassword,
       },
     });
 
@@ -68,14 +68,14 @@ const registerSMTPServer = async (req, res) => {
     // Send test email
     await transporter.sendMail({
       name: "Nortify",
-      from: from_address,
-      to: from_address,
+      from: fromAddress,
+      to: fromAddress,
       subject: "SMTP Verification",
       text: "Your SMTP configuration has been verified successfully.",
     });
 
     // Encrypt password
-    const encryptedPassword = encryptPassword(smtp_password);
+    const encryptedPassword = encryptPassword(smtpPassword);
 
     // Insert configuration into DB
     const insertQuery = `
@@ -90,10 +90,10 @@ const registerSMTPServer = async (req, res) => {
       name || null,
       host,
       port,
-      smtp_user,
+      smtpUser,
       encryptedPassword,
       secure,
-      from_address,
+      fromAddress,
     ];
 
     const result = await client.query(insertQuery, values);

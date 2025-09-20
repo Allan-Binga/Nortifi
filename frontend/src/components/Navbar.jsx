@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { List, Contact, Mail, LogOut, Mails, Users } from "lucide-react";
+import { Contact, Mail, LogOut, Mails, Users, Server } from "lucide-react";
 import Logo from "../assets/logo.png";
 import axios from "axios";
 import { notify } from "../utils/toast";
@@ -12,6 +12,11 @@ function Navbar() {
 
   // Flattened navigation items
   const navItems = [
+    {
+      name: "SMTP",
+      path: "/smtp-configuration",
+      icon: <Server className="w-4 h-4 mr-2" />,
+    },
     {
       name: "Send Email",
       path: "/new-email",
@@ -60,7 +65,10 @@ function Navbar() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-24">
           {/* Logo Section */}
-          <Link to="/new-email" className="flex items-center ml-0 cursor-pointer">
+          <Link
+            to="/new-email"
+            className="flex items-center ml-0 cursor-pointer"
+          >
             <img
               src={Logo}
               alt="Pioneer-Writers"
