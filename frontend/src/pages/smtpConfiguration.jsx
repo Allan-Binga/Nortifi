@@ -82,7 +82,7 @@ function Configurations() {
               <p className="text-gray-600 mb-4">
                 No SMTP configurations found.
               </p>
-              <Link to="/register/smtp">
+              <Link to="/register-smtp">
                 <button className="bg-gray-900 text-white px-6 py-3 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center space-x-2 hover:scale-105 cursor-pointer mx-auto">
                   <span>Add New SMTP Server</span>
                   <Server className="w-4 h-4" />
