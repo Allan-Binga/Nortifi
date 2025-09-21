@@ -530,28 +530,6 @@ function NewEmail() {
         )}
       </div>
 
-      {/* Tags */}
-      <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-2">
-          Tags{" "}
-          <span className="text-slate-500 text-xs font-normal">
-            (Separate multiple tags with a comma)
-          </span>
-        </label>
-        <input
-          type="text"
-          value={emailData.tags.join(", ")}
-          onChange={(e) => handleTagsChange(e.target.value)}
-          placeholder="New Client, VIP, Premium"
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                     focus:outline-none focus:ring-2 focus:ring-teal-500 
-                     focus:border-transparent transition duration-200"
-        />
-        <p className="text-slate-500 text-xs mt-1">
-          Tags help categorize and filter your email campaigns.
-        </p>
-      </div>
-
       {/* Exclude Unsubscribed Checkbox */}
       <div className="flex items-center">
         <input

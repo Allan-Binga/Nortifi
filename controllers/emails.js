@@ -3,7 +3,7 @@ const ses = require("../config/sesClient");
 const { SendEmailCommand } = require("@aws-sdk/client-ses");
 const crypto = require("crypto");
 const moment = require("moment-timezone");
-const nodemailer = require("nodemailer")
+const nodemailer = require("nodemailer");
 
 // Generate unsubscribe token
 const generateUnsubscribeToken = () => crypto.randomBytes(32).toString("hex");
@@ -172,7 +172,8 @@ const sendEmail = async (req, res) => {
       const footerParts = [
         `<p style="font-size:12px;color:#666;margin:20px 0;">
           Don’t want to receive these emails? 
-          <a href="http://localhost:6300/unsubscribe?token=${recipient.unsubscribe_token}" style="color:#007bff;">Unsubscribe</a>
+          <a href="${process.env.CLIENT_URL}/unsubscribe?token=${recipient.unsubscribe_token}" style="color:#007bff;">Unsubscribe</a>
+
         </p>`,
       ];
 
@@ -194,8 +195,8 @@ const sendEmail = async (req, res) => {
           address: fromEmail,
         },
         to: recipient.email,
-        cc,
-        bcc,
+        cc: cc,
+        bcc: bcc,
         subject,
         html: htmlTemplate,
         text: body.replace(/<\/?[^>]+(>|$)/g, ""),
@@ -501,6 +502,7 @@ const sendEmailAWS = async (req, res) => {
 //Unsubscribe
 const unsubscribeEmail = async (req, res) => {
   const { token } = req.query;
+  console.log(token)
 
   if (!token) {
     return res.status(400).send("Invalid unsubscribe link");

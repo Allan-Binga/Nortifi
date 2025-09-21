@@ -64,9 +64,9 @@ function RegisterSMTP() {
         smtpUser: smtpData.smtpUser,
         smtpPassword: smtpData.smtpPassword,
         fromAddress: smtpData.fromAddress,
+        host: smtpData.host,
       };
 
-      if (smtpData.host) payload.host = smtpData.host;
       if (smtpData.port) payload.port = Number(smtpData.port);
       if (showAdvanced) payload.secure = smtpData.secure;
 
@@ -142,6 +142,21 @@ function RegisterSMTP() {
                 value={smtpData.name}
                 onChange={handleInputChange}
                 placeholder="e.g., My Gmail SMTP"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              />
+            </div>
+
+            {/*SMTP Host*/}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                SMTP Host
+              </label>
+              <input
+                type="text"
+                name="host"
+                value={smtpData.host}
+                onChange={handleInputChange}
+                placeholder="e.g., smtp.gmail.com"
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
               />
             </div>

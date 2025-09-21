@@ -1,8 +1,4 @@
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -13,6 +9,7 @@ import Landing from "./pages/Landing";
 import Configurations from "./pages/smtpConfiguration";
 import RegisterSMTP from "./pages/RegisterSMTP";
 import Home from "./pages/Home";
+import Unsubscribe from "./pages/Unsubsribe";
 
 function App() {
   return (
@@ -28,6 +25,7 @@ function App() {
         <Route path="/emails" element={<Emails />} />
         <Route path="/smtp-configuration" element={<Configurations />} />
         <Route path="/register-smtp" element={<RegisterSMTP />} />
+        <Route path="/unsubscribe" element={<Unsubscribe />} />
       </Routes>
     </Router>
   );
