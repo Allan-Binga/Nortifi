@@ -183,7 +183,7 @@ function Landing() {
       <section className="py-20 bg-gray-900 text-white">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-light mb-6">
-            Ready to transform your email marketing?
+            Ready to transform your mail solutions?
           </h2>
           <p className="text-xl text-gray-300 mb-12">
             Join thousands of businesses already seeing incredible results
