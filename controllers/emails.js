@@ -22,6 +22,7 @@ const decryptPassword = (encrypted) => {
 // Send Email with Nodemailer
 const sendEmail = async (req, res) => {
   const userId = req.userId;
+  console.log(userId);
 
   try {
     const {
