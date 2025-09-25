@@ -1,6 +1,8 @@
 const client = require("../config/db");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
+const Joi = require("joi");
+const { serverRegistrationEmail } = require("./emailService");
 
 //AES Encryption
 const encryptPassword = (text) => {
@@ -12,17 +14,46 @@ const encryptPassword = (text) => {
   return iv.toString("hex") + ":" + encrypted; // store iv + data
 };
 
-//Register SMTP server
+//SMTP Validation Schema
+const smtpSchema = Joi.object({
+  name: Joi.string().max(100).optional(),
+
+  smtpUser: Joi.string()
+    .email({ tlds: { allow: false } }) // validate as proper email
+    .required(),
+
+  smtpPassword: Joi.string().min(4).required(),
+
+  host: Joi.string().hostname().optional(),
+
+  port: Joi.number().integer().min(1).max(65535).optional(),
+
+  secure: Joi.boolean().optional(),
+
+  testEmail: Joi.string()
+    .email({ tlds: { allow: false } })
+    .optional(),
+});
+
+// Register SMTP server
 const registerSMTPServer = async (req, res) => {
   const userId = req.userId;
   try {
-    const { name, smtpUser, smtpPassword, fromAddress, host, port, secure } =
-      req.body;
+    // Validate request body
+    const { error, value } = smtpSchema.validate(req.body, {
+      abortEarly: false, // collect all errors
+      stripUnknown: true, // remove unexpected fields
+    });
 
-    // Validate required fields
-    if (!smtpUser || !smtpPassword || !fromAddress) {
-      return res.status(400).json({ error: "Missing required fields" });
+    if (error) {
+      return res.status(400).json({
+        error: error.details.map((d) => d.message).join(", "),
+      });
     }
+
+    // Destructure the validated payload
+    const { name, smtpUser, smtpPassword, host, port, secure, testEmail } =
+      value;
 
     // Enforce maximum of 3 configurations
     const countConfigs = await client.query(
@@ -52,12 +83,10 @@ const registerSMTPServer = async (req, res) => {
       const domain = smtpUser.split("@")[1];
       const providerConfiguration = smtpProviders[domain];
       if (!providerConfiguration) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Unsupported email provider. Please provide host/port manually.",
-          });
+        return res.status(400).json({
+          error:
+            "Unsupported email provider. Please provide host/port manually.",
+        });
       }
       smtpHost = providerConfiguration.host;
       smtpPort = providerConfiguration.port;
@@ -80,8 +109,8 @@ const registerSMTPServer = async (req, res) => {
     // Send test email
     await transporter.sendMail({
       name: "Nortify",
-      from: fromAddress,
-      to: fromAddress,
+      from: smtpUser,
+      to: testEmail,
       subject: "SMTP Verification",
       text: "Your SMTP configuration has been verified successfully.",
     });
@@ -92,8 +121,8 @@ const registerSMTPServer = async (req, res) => {
     // Insert configuration into DB
     const insertQuery = `
       INSERT INTO smtp_configs 
-        (user_id, name, smtp_host, smtp_port, smtp_user, smtp_password, use_tls, from_address) 
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        (user_id, name, smtp_host, smtp_port, smtp_user, smtp_password, use_tls) 
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
       RETURNING config_id
     `;
 
@@ -105,10 +134,15 @@ const registerSMTPServer = async (req, res) => {
       smtpUser,
       encryptedPassword,
       smtpSecure,
-      fromAddress,
     ];
 
     const result = await client.query(insertQuery, values);
+
+    // Fire and forget
+    //Sends Server Registration Email
+    serverRegistrationEmail(userId).catch((err) => {
+      console.error("Background SES send failed:", err.message);
+    });
 
     res.status(201).json({
       success: true,

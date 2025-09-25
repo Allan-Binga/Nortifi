@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
-import { Plus, Edit2, Trash2, X, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Loader2, Upload } from "lucide-react";
 
 function Contact() {
   const [contacts, setContacts] = useState([]);
@@ -20,6 +20,12 @@ function Contact() {
   const [editingContact, setEditingContact] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [csvFile, setCSVFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = (e) => {
+    setCSVFile(e.target.files[0]);
+  };
 
   const countryCodes = [
     { code: "+1", country: "US/Canada", flag: "🇺🇸" },
@@ -178,6 +184,34 @@ function Contact() {
       console.error("Error:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleUploadCSV = async (e) => {
+    if (!csvFile) {
+      alert("Please select a CSV file first!");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", csvFile);
+
+    try {
+      setIsUploading(true);
+      const response = await axios.post(
+        `${backend}/contacts/add-via-csv`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
+        }
+      );
+      notify.success(response.data.message || "CSV uploaded successfully");
+    } catch (error) {
+      console.error("Error uploading CSV:", error);
+      notify.error("Failed to upload CSV");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -411,7 +445,26 @@ function Contact() {
                 </div>
 
                 {/* Buttons */}
-                <div className="flex justify-end space-x-4">
+                <div className="flex justify-end space-x-4 items-center">
+                  <label className="cursor-pointer px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-base flex items-center gap-2 hover:from-indigo-600 hover:to-indigo-700 transition duration-200">
+                    <Upload className="w-5 h-5" />
+                    Import from CSV
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {csvFile && (
+                    <button
+                      onClick={handleUploadCSV}
+                      disabled={isUploading}
+                      className="px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-green-500 to-green-600 text-white text-base flex items-center gap-2 hover:from-green-600 hover:to-green-700 cursor-pointer transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isUploading ? "Uploading..." : "Upload"}
+                    </button>
+                  )}
                   {editingContact && (
                     <button
                       type="button"

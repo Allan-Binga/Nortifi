@@ -1,10 +1,20 @@
 const cron = require("node-cron");
 const client = require("./db");
-const ses = require("./sesClient");
-const { SendEmailCommand } = require("@aws-sdk/client-ses");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
+// Decrypt AES password
+const decryptPassword = (encrypted) => {
+  const [ivHex, encryptedText] = encrypted.split(":");
+  const key = Buffer.from(process.env.SMTP_SECRET_KEY, "hex");
+  const iv = Buffer.from(ivHex, "hex");
+  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  let decrypted = decipher.update(encryptedText, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+};
 
 const scheduleCampaigns = async () => {
-  // Run every minute to check for due campaigns
   cron.schedule("* * * * *", async () => {
     try {
       const now = new Date();
@@ -28,16 +38,16 @@ const scheduleCampaigns = async () => {
           timezone,
           footer_locations,
           send_type,
+          smtp_config_id,
         } = campaign;
-        console.log(footer_locations);
 
-        // Parse footer_locations JSON if it’s stored as string
+        // Parse footer_locations
         let parsedFooterLocations = [];
         if (footer_locations) {
           if (typeof footer_locations === "string") {
             try {
               parsedFooterLocations = JSON.parse(footer_locations);
-            } catch (e) {
+            } catch {
               parsedFooterLocations = [];
             }
           } else if (Array.isArray(footer_locations)) {
@@ -47,7 +57,6 @@ const scheduleCampaigns = async () => {
 
         // --- Check if campaign should send ---
         let shouldSend = false;
-
         const nowInTimezone = new Date(
           new Date().toLocaleString("en-US", {
             timeZone: timezone || "Africa/Nairobi",
@@ -56,11 +65,9 @@ const scheduleCampaigns = async () => {
 
         if (recurring_rule) {
           if (!campaign.last_sent) {
-            // First send → respect scheduled_at
             shouldSend = nowInTimezone >= new Date(scheduled_at);
           } else {
             const lastSentDate = new Date(campaign.last_sent);
-
             if (recurring_rule === "daily") {
               shouldSend =
                 nowInTimezone >=
@@ -79,8 +86,8 @@ const scheduleCampaigns = async () => {
           shouldSend = true;
         }
 
-        // --- Send if due ---
         if (shouldSend) {
+          // --- Get recipients ---
           const { rows: recipients } = await client.query(
             `
             SELECT c.email, cr.contact_id, c.unsubscribe_token
@@ -92,6 +99,33 @@ const scheduleCampaigns = async () => {
           );
 
           if (recipients.length) {
+            // --- Load SMTP config for this campaign ---
+            const { rows: smtpRows } = await client.query(
+              `SELECT * FROM smtp_configs WHERE config_id = $1`,
+              [smtp_config_id]
+            );
+
+            if (!smtpRows.length) {
+              console.error(
+                `No SMTP config found for campaign ${campaign_id}, skipping.`
+              );
+              continue;
+            }
+
+            const smtpConfig = smtpRows[0];
+            const smtpPassword = decryptPassword(smtpConfig.smtp_password);
+
+            const transporter = nodemailer.createTransport({
+              host: smtpConfig.smtp_host,
+              port: smtpConfig.smtp_port,
+              secure: smtpConfig.use_tls,
+              auth: {
+                user: smtpConfig.smtp_user,
+                pass: smtpPassword,
+              },
+            });
+
+            // --- Send mails ---
             for (const recipient of recipients) {
               let footer = `
                 <br><hr>
@@ -102,42 +136,31 @@ const scheduleCampaigns = async () => {
               `;
 
               if (parsedFooterLocations.length) {
-                footer +=
-                  '<p style="font-size: 12px; color: #666;">Our Locations:</p>';
                 parsedFooterLocations.forEach((loc) => {
-                  footer += `<p style="font-size: 12px; color: #666;">${loc.location}: ${loc.address}, ${loc.phone}</p>`;
+                  footer += `<p style="font-size: 12px; color: #666;">
+                    <strong>${loc.location}</strong>: ${loc.address}, ${loc.phone}
+                  </p>`;
                 });
               }
 
-              const params = {
-                Destination: {
-                  ToAddresses: [recipient.email],
-                  CcAddresses: campaign.cc || [],
-                  BccAddresses: campaign.bcc || [],
-                },
-                Message: {
-                  Body: {
-                    Html: { Charset: "UTF-8", Data: campaign.body + footer },
-                    Text: {
-                      Charset: "UTF-8",
-                      Data:
-                        campaign.body.replace(/<\/?[^>]+(>|$)/g, "") +
-                        "\n\nUnsubscribe: https://yourapp.com/unsubscribe?token=" +
-                        recipient.unsubscribe_token,
-                    },
-                  },
-                  Subject: { Charset: "UTF-8", Data: campaign.subject },
-                },
-                Source: `"${campaign.from_name || "Default Sender"}" <${
-                  campaign.from_email || process.env.DEFAULT_FROM_EMAIL
-                }>`,
-                ReplyToAddresses: [
-                  campaign.reply_to_email || process.env.DEFAULT_REPLYTO,
-                ],
-              };
+              const htmlTemplate = `<div>${campaign.body}${footer}</div>`;
 
-              const command = new SendEmailCommand(params);
-              await ses.send(command);
+              await transporter.sendMail({
+                from: {
+                  name: campaign.from_name || "Default Sender",
+                  address: campaign.from_email || smtpConfig.smtp_user,
+                },
+                to: recipient.email,
+                cc: campaign.cc || [],
+                bcc: campaign.bcc || [],
+                subject: campaign.subject,
+                html: htmlTemplate,
+                text:
+                  campaign.body.replace(/<\/?[^>]+(>|$)/g, "") +
+                  "\n\nUnsubscribe: https://yourapp.com/unsubscribe?token=" +
+                  recipient.unsubscribe_token,
+                replyTo: campaign.reply_to_email || smtpConfig.smtp_user,
+              });
 
               await client.query(
                 `

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import LandingImg from "../assets/logo.png";
 import { Link } from "react-router-dom";
 import { ArrowRight, Mail, Send, Target, Zap, ChevronDown } from "lucide-react";
 
@@ -11,7 +10,6 @@ const LogoComponent = () => (
 );
 
 function Landing() {
-  const [email, setEmail] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -193,7 +191,7 @@ function Landing() {
             <div className="max-w-md mx-auto mb-8 flex justify-center">
               <Link to="/sign-up">
                 <button className="bg-white text-gray-900 px-6 py-3 rounded-xl hover:bg-white transition-all flex items-center space-x-2 hover:scale-105 cursor-pointer">
-                  <span>Start Free</span>
+                  <span>Start for Free</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </Link>

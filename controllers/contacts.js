@@ -1,5 +1,15 @@
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+const csv = require("csv-parser");
 const client = require("../config/db");
 const crypto = require("crypto");
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 // Fetch all contacts
 const getContacts = async (req, res) => {
@@ -37,6 +47,72 @@ const createContact = async (req, res) => {
   } catch (error) {
     console.error("Error creating contact:", error);
     res.status(500).json({ error: "Failed to create contact" });
+  }
+};
+
+//Add Contacts via CSV
+const addViaCSV = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No CSV file uploaded" });
+    }
+
+    const userId = req.userId;
+    const bucket = process.env.AWS_S3_BUCKET;
+    const key = req.file.key; // multer-s3
+    const contacts = [];
+
+    // Fetch file from S3
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    const response = await s3.send(command);
+
+    // Parse CSV stream
+    await new Promise((resolve, reject) => {
+      response.Body.pipe(csv())
+        .on("data", (row) => {
+          const unsubscribeToken = crypto.randomBytes(20).toString("hex");
+
+          contacts.push({
+            user_id: userId,
+            phone_number: row.phone_number || null,
+            email: row.email,
+            name: row.name || null,
+            tag: row.tag || "New Client",
+            website: row.website || null,
+            unsubscribe_token: unsubscribeToken,
+          });
+        })
+        .on("end", resolve)
+        .on("error", reject);
+    });
+
+    // Insert contacts one by one (safe for small uploads)
+    for (const c of contacts) {
+      await client.query(
+        `INSERT INTO contacts 
+         (user_id, phone_number, email, name, tag, website, unsubscribe_token)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (email, user_id) DO NOTHING`,
+        [
+          c.user_id,
+          c.phone_number,
+          c.email,
+          c.name,
+          c.tag,
+          c.website,
+          c.unsubscribe_token,
+        ]
+      );
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Contacts imported successfully",
+      count: contacts.length,
+    });
+  } catch (error) {
+    console.error("Error importing contacts via CSV:", error);
+    return res.status(500).json({ error: "Failed to import contacts" });
   }
 };
 
@@ -95,4 +171,10 @@ const deleteContact = async (req, res) => {
   }
 };
 
-module.exports = { getContacts, createContact, updateContact, deleteContact };
+module.exports = {
+  getContacts,
+  createContact,
+  addViaCSV,
+  updateContact,
+  deleteContact,
+};

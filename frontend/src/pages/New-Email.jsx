@@ -8,14 +8,18 @@ import {
   Plus,
   Calendar,
   Send,
+  Save,
 } from "lucide-react";
 import axios from "axios";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
+import { fetchSMTPs } from "../utils/smtp";
 
 function NewEmail() {
   const [currentTab, setCurrentTab] = useState(0);
   const [contacts, setContacts] = useState([]);
+  const [emailServers, setEmailServers] = useState([]);
+  const [selectedServer, setSelectedServer] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailData, setEmailData] = useState({
     label: "",
@@ -35,8 +39,28 @@ function NewEmail() {
     footerLocations: [],
     tags: [],
     exclude_unsubscribed: true,
+    smtpConfigId: "",
   });
   const [selectedContacts, setSelectedContacts] = useState([]); // New state for selected contact IDs
+
+  // Fetch SMTP servers for clients to select
+  useEffect(() => {
+    const loadSMTPs = async () => {
+      try {
+        const servers = await fetchSMTPs();
+        setEmailServers(servers);
+
+        // Auto-select the first server if available
+        if (servers.length > 0) {
+          setSelectedServer(servers[0].config_id);
+        }
+      } catch (error) {
+        console.error("Error fetching SMTP servers:", error);
+      }
+    };
+
+    loadSMTPs();
+  }, []);
 
   // Fetch contacts on mount
   useEffect(() => {
@@ -137,17 +161,6 @@ function NewEmail() {
     }));
   };
 
-  const handleTagsChange = (value) => {
-    const tagsArray = value
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
-    setEmailData((prev) => ({
-      ...prev,
-      tags: tagsArray,
-    }));
-  };
-
   const handleNext = () => {
     if (currentTab < tabs.length - 1) {
       setCurrentTab(currentTab + 1);
@@ -219,6 +232,7 @@ function NewEmail() {
         },
         forceSend: emailData.forceSend,
         footerLocations: emailData.footerLocations,
+        smtpConfigId: selectedServer,
       };
 
       const response = await axios.post(
@@ -252,6 +266,7 @@ function NewEmail() {
         footerLocations: [],
         tags: [],
         exclude_unsubscribed: true,
+        smtpConfigId: "",
       });
       setCurrentTab(0);
     } catch (error) {
@@ -259,6 +274,49 @@ function NewEmail() {
       const errorMessage =
         error.response?.data?.message || "Failed to send email";
       notify.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setLoading(true);
+    try {
+      const payload = {
+        ...emailData,
+        toEmails: emailData.recipients
+          .split(",")
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0),
+        cc: emailData.ccEmails
+          ? emailData.ccEmails
+              .split(",")
+              .map((e) => e.trim())
+              .filter((e) => e.length > 0)
+          : [],
+        bcc: emailData.bccEmails
+          ? emailData.bccEmails
+              .split(",")
+              .map((e) => e.trim())
+              .filter((e) => e.length > 0)
+          : [],
+        smtpConfigId: selectedServer,
+        saveAsDraft: true, // 👈 key flag
+      };
+
+      const response = await axios.post(
+        `${backend}/emails/smtp/send-email`,
+        payload,
+        { withCredentials: true }
+      );
+
+      notify.success("Draft saved successfully!");
+      console.log("Draft Response:", response.data);
+
+      setCurrentTab(0);
+    } catch (error) {
+      console.error("Save Draft Error:", error);
+      notify.error("Failed to save draft");
     } finally {
       setLoading(false);
     }
@@ -580,6 +638,30 @@ function NewEmail() {
 
   const renderAdvancedTab = () => (
     <div className="space-y-6">
+      {/* SMTP Server Selector */}
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 mb-2">
+          Select SMTP Server
+        </label>
+        <select
+          value={selectedServer}
+          onChange={(e) => setSelectedServer(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
+             focus:outline-none focus:ring-2 focus:ring-teal-500 
+             focus:border-transparent transition duration-200 bg-white"
+        >
+          {emailServers.length > 0 ? (
+            emailServers.map((server) => (
+              <option key={server.config_id} value={server.config_id}>
+                {server.name || server.smtp_user}
+              </option>
+            ))
+          ) : (
+            <option disabled>No servers available</option>
+          )}
+        </select>
+      </div>
+
       {/* From Name */}
       <div>
         <label className="block text-xs font-semibold text-slate-700 mb-2">
@@ -982,14 +1064,28 @@ function NewEmail() {
             <div className="p-6">{renderTabContent()}</div>
 
             {/* Discard Changes Button */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              {/* Save to Draft */}
+              <button
+                onClick={handleSaveDraft}
+                className="px-5 py-2.5 flex items-center gap-2 rounded-lg shadow-sm cursor-pointer
+      bg-gradient-to-r from-teal-500 to-teal-600 
+      text-white font-medium 
+      hover:from-teal-600 hover:to-teal-700 
+      transition duration-200"
+              >
+                <Save className="w-5 h-5" />
+                Save to Draft
+              </button>
+
+              {/* Discard Changes */}
               <button
                 onClick={handleDiscardChanges}
                 className="px-5 py-2.5 flex items-center gap-2 rounded-lg shadow-sm cursor-pointer
-               bg-gradient-to-r from-red-500 to-red-600 
-               text-white font-medium uppercase tracking-wide
-               hover:from-red-600 hover:to-red-700 
-               transition duration-200"
+      bg-gradient-to-r from-red-500 to-red-600 
+      text-white font-md
+      hover:from-red-600 hover:to-red-700 
+      transition duration-200"
               >
                 <Trash2 className="w-5 h-5" />
                 Discard Changes

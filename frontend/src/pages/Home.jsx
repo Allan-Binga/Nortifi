@@ -177,8 +177,8 @@ function Home() {
           <h2 className="text-3xl font-light mb-6">
             Ready to launch your next campaign?
           </h2>
-          <Link to="/create-campaign">
-            <button className="bg-white text-gray-900 px-6 py-3 rounded-xl hover:bg-gray-100 transition-all flex items-center space-x-2 hover:scale-105 mx-auto">
+          <Link to="/new-email">
+            <button className="bg-white text-gray-900 cursor-pointer px-6 py-3 rounded-xl hover:bg-gray-100 transition-all flex items-center space-x-2 hover:scale-105 mx-auto">
               <Plus className="w-5 h-5" />
               <span>Create New Campaign</span>
             </button>

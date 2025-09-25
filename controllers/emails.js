@@ -37,9 +37,10 @@ const sendEmail = async (req, res) => {
       scheduled_at = null,
       timezone: campaignTimezone = null,
       recurring_rule = null,
-      filter = {},
       forceSend = false,
       footerLocations = [],
+      smtpConfigId,
+      saveAsDraft = false,
     } = req.body;
 
     if (!subject || !body) {
@@ -48,11 +49,19 @@ const sendEmail = async (req, res) => {
         .json({ success: false, message: "subject and body are required" });
     }
 
-    // --- Fetch user's default SMTP config ---
-    const smtpQuery = await client.query(
-      "SELECT * FROM smtp_configs WHERE user_id = $1 LIMIT 1",
-      [userId]
-    );
+    // --- Get SMTP Config ---
+    let smtpQuery;
+    if (smtpConfigId) {
+      smtpQuery = await client.query(
+        "SELECT * FROM smtp_configs WHERE config_id = $1 AND user_id = $2",
+        [smtpConfigId, userId]
+      );
+    } else {
+      smtpQuery = await client.query(
+        "SELECT * FROM smtp_configs WHERE user_id = $1 ORDER BY is_default DESC, created_at ASC LIMIT 1",
+        [userId]
+      );
+    }
 
     if (!smtpQuery.rows.length) {
       return res
@@ -62,15 +71,19 @@ const sendEmail = async (req, res) => {
 
     const smtpConfig = smtpQuery.rows[0];
     const smtpPassword = decryptPassword(smtpConfig.smtp_password);
-
-    const fromEmail = smtpConfig.from_address;
+    const fromEmail = smtpConfig.smtp_user;
 
     // --- Insert Campaign ---
+    const status = "pending"; // default for active campaigns
+    const isDraft = saveAsDraft;
+
     const insertCampaignSQL = `
       INSERT INTO campaigns
-        (label, subject, body, from_name, from_email, reply_to_email, cc, bcc, user_id, status, scheduled_at, send_type, timezone, recurring_rule, footer_locations)
+        (label, subject, body, from_name, from_email, reply_to_email, cc, bcc,
+         user_id, status, scheduled_at, send_type, timezone, recurring_rule,
+         footer_locations, smtp_config_id, is_draft)
       VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING campaign_id, scheduled_at
     `;
 
@@ -88,14 +101,26 @@ const sendEmail = async (req, res) => {
       cc || [],
       bcc || [],
       userId,
+      status,
       utcScheduledAt,
       send_type,
       campaignTimezone || null,
       recurring_rule || null,
       footerLocations ? JSON.stringify(footerLocations) : "[]",
+      smtpConfig.config_id,
+      isDraft,
     ]);
 
     const campaignId = campaignRes.rows[0].campaign_id;
+
+    // --- Drafts Stop Here ---
+    if (saveAsDraft) {
+      return res.status(200).json({
+        success: true,
+        message: "Draft saved successfully",
+        campaignId,
+      });
+    }
 
     // --- Resolve Recipients ---
     const recipientsToSend = [];
@@ -134,6 +159,7 @@ const sendEmail = async (req, res) => {
       }
     }
 
+    // --- Handle Scheduled Campaigns ---
     const shouldSendNow = send_type === "immediate" || forceSend;
 
     if (!shouldSendNow) {
@@ -141,12 +167,14 @@ const sendEmail = async (req, res) => {
         `UPDATE campaigns SET status = 'scheduled' WHERE campaign_id = $1`,
         [campaignId]
       );
+
       for (const r of recipientsToSend) {
         await client.query(
           `INSERT INTO campaign_recipients (campaign_id, contact_id, status) VALUES ($1, $2, 'pending')`,
           [campaignId, r.contact_id]
         );
       }
+
       return res.status(200).json({
         success: true,
         message: "Campaign scheduled",
@@ -173,7 +201,6 @@ const sendEmail = async (req, res) => {
         `<p style="font-size:12px;color:#666;margin:20px 0;">
           Don’t want to receive these emails? 
           <a href="${process.env.CLIENT_URL}/unsubscribe?token=${recipient.unsubscribe_token}" style="color:#007bff;">Unsubscribe</a>
-
         </p>`,
       ];
 
@@ -502,7 +529,7 @@ const sendEmailAWS = async (req, res) => {
 //Unsubscribe
 const unsubscribeEmail = async (req, res) => {
   const { token } = req.query;
-  console.log(token)
+  console.log(token);
 
   if (!token) {
     return res.status(400).send("Invalid unsubscribe link");

@@ -14,9 +14,9 @@ function SignIn() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [showForgotModal, setShowForgotModal] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const from = location.state?.from?.pathname || "/emails";
+  // const location = useLocation();
+  // const from = location.state?.from?.pathname || "/emails";
 
   const validateField = (name, value) => {
     if (name === "email") {
@@ -41,7 +41,6 @@ function SignIn() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Only clear error for the field being typed, don't validate yet
     setFieldErrors((prev) => ({ ...prev, [name]: "" }));
   };
 

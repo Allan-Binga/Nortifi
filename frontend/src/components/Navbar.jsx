@@ -30,7 +30,12 @@ function Navbar() {
       icon: <Home className="w-4 h-4 mr-2" />,
     },
     {
-      name: "SMTP",
+      name: "Contacts",
+      icon: <Users className="w-4 h-4 mr-2" />,
+      subItems: [{ name: "All contacts", path: "/contacts" }],
+    },
+    {
+      name: "SMTP Servers",
       icon: <Server className="w-4 h-4 mr-2" />,
       subItems: [
         { name: "New Server", path: "/register-smtp" },
@@ -46,11 +51,6 @@ function Navbar() {
       name: "All Emails",
       path: "/emails",
       icon: <Mails className="w-4 h-4 mr-2" />,
-    },
-    {
-      name: "All Contacts",
-      path: "/contacts",
-      icon: <Users className="w-4 h-4 mr-2" />,
     },
   ];
 

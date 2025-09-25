@@ -10,6 +10,7 @@ import Configurations from "./pages/smtpConfiguration";
 import RegisterSMTP from "./pages/RegisterSMTP";
 import Home from "./pages/Home";
 import Unsubscribe from "./pages/Unsubsribe";
+import AddContact from "./pages/AddContact";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/sign-up" element={<SignUp />} />
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/contacts" element={<Contact />} />
+        <Route path="/add-contact" element={<AddContact />} />
         <Route path="/new-email" element={<NewEmail />} />
         <Route path="/emails" element={<Emails />} />
         <Route path="/smtp-configuration" element={<Configurations />} />
