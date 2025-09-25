@@ -454,6 +454,15 @@ function NewEmail() {
 
       {/* Recipients */}
       <div>
+        {/* Info Label */}
+        <p className="text-xs text-slate-500 mb-2">
+          Make sure the contacts with the emails you want to use are added
+          first.{" "}
+          <a href="/contacts" className="text-teal-500 hover:underline">
+            Go to Contacts
+          </a>
+        </p>
+
         <label className="block text-xs font-semibold text-slate-700 mb-2">
           Recipients <span className="text-red-500">*</span>
           {emailData.recipientMode === "individual" && (
