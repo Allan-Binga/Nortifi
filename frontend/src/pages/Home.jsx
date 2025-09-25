@@ -61,13 +61,13 @@ function Home() {
           {/* Quick Actions */}
           <div className="flex flex-wrap gap-4 mb-12">
             <Link to="/new-email">
-              <button className="bg-gray-900 text-white px-6 py-3 rounded-xl hover:bg-gray-800 transition-all flex items-center space-x-2 cursor-pointer">
+              <button className="bg-gray-900 text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-all flex items-center space-x-2 cursor-pointer">
                 <Mail className="w-5 h-5" />
                 <span>New Email</span>
               </button>
             </Link>
             <Link to="/register-smtp">
-              <button className="bg-white text-gray-900 px-6 py-3 rounded-xl border border-gray-200 hover:bg-gray-100 transition-all flex items-center space-x-2 cursor-pointer">
+              <button className="bg-white text-gray-900 px-6 py-3 rounded-md border border-gray-200 hover:bg-gray-100 transition-all flex items-center space-x-2 cursor-pointer">
                 <Server className="w-5 h-5" />
                 <span>Register an SMTP server</span>
               </button>
