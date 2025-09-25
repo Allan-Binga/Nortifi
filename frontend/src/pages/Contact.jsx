@@ -207,6 +207,15 @@ function Contact() {
         }
       );
       notify.success(response.data.message || "CSV uploaded successfully");
+      // Refresh contacts list after successful upload
+      const contactsResponse = await axios.get(
+        `${backend}/contacts/all-contacts`,
+        {
+          withCredentials: true,
+        }
+      );
+      setContacts(contactsResponse.data);
+      setCSVFile(null); // Clear the file input
     } catch (error) {
       console.error("Error uploading CSV:", error);
       notify.error("Failed to upload CSV");
@@ -278,10 +287,10 @@ function Contact() {
       <Navbar />
 
       <div className="relative z-10 container mx-auto px-4 py-8 pt-30 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             {/* Header */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+            <div className="bg-gray-50 px-8 py-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-800">
                   {editingContact ? "Update Contact" : "Create New Contact"}
@@ -296,7 +305,7 @@ function Contact() {
             </div>
 
             {/* Form */}
-            <div className="p-6">
+            <div className="p-8">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Name */}
@@ -444,68 +453,82 @@ function Contact() {
                   </div>
                 </div>
 
-                {/* Buttons */}
-                <div className="flex justify-end space-x-4 items-center">
-                  <label className="cursor-pointer px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-base flex items-center gap-2 hover:from-indigo-600 hover:to-indigo-700 transition duration-200">
-                    <Upload className="w-5 h-5" />
-                    Import from CSV
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
+                {/* CSV Preview and Buttons */}
+                <div className="space-y-4">
                   {csvFile && (
-                    <button
-                      onClick={handleUploadCSV}
-                      disabled={isUploading}
-                      className="px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-green-500 to-green-600 text-white text-base flex items-center gap-2 hover:from-green-600 hover:to-green-700 cursor-pointer transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isUploading ? "Uploading..." : "Upload"}
-                    </button>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                      <Upload className="w-4 h-4 text-indigo-600" />
+                      <span>Selected file: {csvFile.name}</span>
+                      <button
+                        onClick={() => setCSVFile(null)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
-                  {editingContact && (
+                  <div className="flex justify-end space-x-4 items-center">
+                    <label className="cursor-pointer px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-base flex items-center gap-2 hover:from-indigo-600 hover:to-indigo-700 transition duration-200">
+                      <Upload className="w-5 h-5" />
+                      Import from CSV
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                    {csvFile && (
+                      <button
+                        onClick={handleUploadCSV}
+                        disabled={isUploading}
+                        className="px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-green-500 to-green-600 text-white text-base flex items-center gap-2 hover:from-green-600 hover:to-green-700 cursor-pointer transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUploading ? "Uploading..." : "Upload"}
+                      </button>
+                    )}
+                    {editingContact && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="px-8 py-3 cursor-pointer rounded-lg shadow-md bg-gradient-to-r from-slate-500 to-slate-600 text-white text-base flex items-center gap-2 hover:from-slate-600 hover:to-slate-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isSubmitting}
+                      >
+                        <X className="w-5 h-5" />
+                        Cancel
+                      </button>
+                    )}
                     <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="px-8 py-3 cursor-pointer rounded-lg shadow-md bg-gradient-to-r from-slate-500 to-slate-600 text-white text-base flex items-center gap-2 hover:from-slate-600 hover:to-slate-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="submit"
+                      className="px-10 py-4 cursor-pointer rounded-lg shadow-lg bg-gradient-to-r from-teal-600 to-teal-700 text-white text-base font-semibold flex items-center gap-2 hover:from-teal-700 hover:to-teal-800 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
                       disabled={isSubmitting}
                     >
-                      <X className="w-5 h-5" />
-                      Cancel
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          {editingContact ? "Updating..." : "Creating..."}
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-5 h-5" />
+                          {editingContact ? "Update Contact" : "Create Contact"}
+                        </>
+                      )}
                     </button>
-                  )}
-                  <button
-                    type="submit"
-                    className="px-8 py-3 cursor-pointer rounded-lg shadow-md bg-gradient-to-r from-teal-500 to-teal-600 text-white text-base flex items-center gap-2 hover:from-teal-600 hover:to-teal-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        {editingContact ? "Updating..." : "Creating..."}
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-5 h-5" />
-                        {editingContact ? "Update Contact" : "Create Contact"}
-                      </>
-                    )}
-                  </button>
+                  </div>
                 </div>
               </form>
             </div>
           </div>
 
           {/* Contacts Table */}
-          <div className="bg-white rounded-lg shadow-lg mt-8">
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+          <div className="bg-white rounded-lg shadow-lg mt-10">
+            <div className="bg-gray-50 px-8 py-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800">
                 Contacts ({contacts.length})
               </h2>
             </div>
-            <div className="p-6">
+            <div className="p-8">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-teal-600 mr-2" />
@@ -521,29 +544,29 @@ function Contact() {
                   </p>
                 </div>
               ) : (
-                <div className="max-h-64 overflow-y-auto">
-                  <table className="w-full text-sm text-slate-700">
+                <div className="max-h-96 overflow-y-auto">
+                  <table className="w-full text-sm text-slate-700 min-w-[900px]">
                     <thead>
                       <tr className="bg-slate-50 sticky top-0">
-                        <th className="px-6 py-3 text-left font-semibold text-slate-700">
+                        <th className="px-6 py-4 text-left font-semibold text-slate-700">
                           Name
                         </th>
-                        <th className="px-6 py-3 text-left font-semibold text-slate-700">
+                        <th className="px-6 py-4 text-left font-semibold text-slate-700">
                           Email
                         </th>
-                        <th className="px-6 py-3 text-left font-semibold text-slate-700">
+                        <th className="px-6 py-4 text-left font-semibold text-slate-700">
                           Phone Number
                         </th>
-                        <th className="px-6 py-3 text-left font-semibold text-slate-700">
+                        <th className="px-6 py-4 text-left font-semibold text-slate-700">
                           Tag
                         </th>
-                        <th className="px-6 py-3 text-left font-semibold text-slate-700">
+                        <th className="px-6 py-4 text-left font-semibold text-slate-700">
                           Website
                         </th>
-                        <th className="px-6 py-3 text-left font-semibold text-slate-700">
+                        <th className="px-6 py-4 text-left font-semibold text-slate-700">
                           Created At
                         </th>
-                        <th className="px-6 py-3 text-left font-semibold text-slate-700">
+                        <th className="px-6 py-4 text-left font-semibold text-slate-700">
                           Actions
                         </th>
                       </tr>
@@ -608,22 +631,22 @@ function Contact() {
                             {formatDate(contact.created_at)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
+                            <div className="flex space-x-3">
                               <button
                                 onClick={() => handleEdit(contact)}
-                                className="cursor-pointer text-teal-600 hover:text-teal-800 p-1 rounded hover:bg-teal-50 transition duration-200"
+                                className="cursor-pointer text-teal-600 hover:text-teal-800 p-2 rounded hover:bg-teal-50 transition duration-200"
                                 title="Edit contact"
                                 disabled={isSubmitting}
                               >
-                                <Edit2 className="w-4 h-4" />
+                                <Edit2 className="w-5 h-5" />
                               </button>
                               <button
                                 onClick={() => handleDelete(contact.contact_id)}
-                                className="cursor-pointer text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition duration-200"
+                                className="cursor-pointer text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition duration-200"
                                 title="Delete contact"
                                 disabled={isSubmitting}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-5 h-5" />
                               </button>
                             </div>
                           </td>
