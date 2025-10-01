@@ -627,9 +627,20 @@ const getEmailCampaigns = async (req, res) => {
   }
 };
 
+//Fetch campaigns by status
+const getCampaignsByStatus = async (req, res) => {
+  const userId = req.userId
+  const { status } = req.params
+  try {
+    const result = await client.query()
+  } catch (error) {
+
+  }
+}
+
 // Get Single Campaign
 const getSingleCampaign = async (req, res) => {
-  const userId = req.userId; 
+  const userId = req.userId;
   const { campaignId } = req.params;
 
   try {
@@ -706,6 +717,7 @@ module.exports = {
   sendEmail,
   unsubscribeEmail,
   getEmailCampaigns,
+  getCampaignsByStatus,
   getSingleCampaign,
   getEmails,
   sendEmailAWS,
