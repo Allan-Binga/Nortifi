@@ -1,25 +1,31 @@
 import Sidebar from "../components/Sidebar";
-import BackgroundWaves from "../components/BackgroundWaves";
+import Spinner from "../components/Spinner";
 import { useState, useEffect } from "react";
 import {
   ArrowRight,
   Trash2,
+  Loader2,
   ArrowLeft,
   Plus,
   Calendar,
   Send,
   Save,
+  X,
 } from "lucide-react";
 import axios from "axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
 import { fetchSMTPs } from "../utils/smtp";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 function NewEmail() {
   const [currentTab, setCurrentTab] = useState(0);
   const [contacts, setContacts] = useState([]);
   const [emailServers, setEmailServers] = useState([]);
   const [selectedServer, setSelectedServer] = useState("");
+  const [showSpinner, setShowSpinner] = useState(false);
   const [loading, setLoading] = useState(false);
   const [emailData, setEmailData] = useState({
     label: "",
@@ -40,8 +46,58 @@ function NewEmail() {
     tags: [],
     exclude_unsubscribed: true,
     smtpConfigId: "",
+    campaignId: null,
   });
+  const [filters, setFilters] = useState({
+    gender: "",
+    website: "",
+  });
+  const navigate = useNavigate()
   const [selectedContacts, setSelectedContacts] = useState([]); // New state for selected contact IDs
+  const [searchParams] = useSearchParams()
+  const draftId = searchParams.get("draftId")
+
+  useEffect(() => {
+    const fetchDraft = async () => {
+      if (!draftId) return;
+      try {
+        const { data } = await axios.get(`${backend}/emails/campaign/${draftId}`, {
+          withCredentials: true
+        })
+
+        setEmailData({
+          label: data.label || "",
+          subject: data.subject || "",
+          body: data.body || "",
+          fromName: data.from_name || "",
+          fromEmail: data.from_email || "",   // add this
+          replyToEmail: data.reply_to_email || "",
+          ccEmails: data.cc?.join(", ") || "",
+          bccEmails: data.bcc?.join(", ") || "",
+          send_type: data.send_type || "immediate",
+          scheduled_at: data.scheduled_at
+            ? new Date(data.scheduled_at).toISOString().slice(0, 16)
+            : "",
+          timezone: data.timezone || "Africa/Nairobi",
+          recurring_rule: data.recurring_rule || "",
+          forceSend: false,
+          footerHtml: data.footer_html || "",
+          footerLocations: data.footer_locations || [],
+          tags: data.tags || [],
+          exclude_unsubscribed: true,
+          smtpConfigId: data.smtp_config_id || "",
+          campaignId: data.campaign_id,
+          status: data.status || "draft",
+          isDraft: data.is_draft ?? true
+        })
+
+      } catch (error) {
+        console.error("Error fetching draft:", err);
+      }
+    }
+
+    fetchDraft()
+  }, [draftId])
 
   // Fetch SMTP servers for clients to select
   useEffect(() => {
@@ -201,6 +257,7 @@ function NewEmail() {
     setLoading(true);
     try {
       const payload = {
+        campaignId: emailData.campaignId,
         label: emailData.label,
         subject: emailData.subject,
         body: emailData.body,
@@ -246,7 +303,6 @@ function NewEmail() {
           ? "Email scheduled successfully!"
           : "Email sent successfully!"
       );
-      console.log("Campaign Response:", response.data);
 
       setEmailData({
         label: "",
@@ -268,7 +324,10 @@ function NewEmail() {
         exclude_unsubscribed: true,
         smtpConfigId: "",
       });
-      setCurrentTab(0);
+      setShowSpinner(true)
+      setTimeout(() => {
+        navigate("/emails")
+      }, 2000)
     } catch (error) {
       console.error("Send Email Error:", error);
       const errorMessage =
@@ -316,13 +375,16 @@ function NewEmail() {
       console.log(payload)
 
       const response = await axios.post(
-        `${backend}/emails/send-email`,
+        `${backend}/emails/smtp/send-email`,
         payload,
         { withCredentials: true }
       );
 
       notify.success("Draft saved successfully!");
-      console.log("Draft Response:", response.data);
+      setShowSpinner(true);
+      setTimeout(() => {
+        navigate("/contacts")
+      }, 2000)
 
       setCurrentTab(0);
     } catch (error) {
@@ -354,8 +416,11 @@ function NewEmail() {
       tags: [],
       exclude_unsubscribed: true,
     });
-    setCurrentTab(0);
     notify.info("Changes discarded");
+    setShowSpinner(true)
+    setTimeout(() => {
+      navigate("/home")
+    }, 2000)
   };
 
   const renderAdvancedTab = () => (
@@ -495,8 +560,8 @@ function NewEmail() {
           onChange={(e) => handleInputChange("label", e.target.value)}
           placeholder="e.g Welcome onboard"
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                 focus:outline-none focus:ring-2 focus:ring-teal-500 
-                 focus:border-transparent transition duration-200"
+               focus:outline-none focus:ring-2 focus:ring-teal-500 
+               focus:border-transparent transition duration-200"
         />
       </div>
 
@@ -511,8 +576,8 @@ function NewEmail() {
           onChange={(e) => handleInputChange("subject", e.target.value)}
           placeholder="e.g Onboarding"
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200   
-                 focus:outline-none focus:ring-2 focus:ring-teal-500 
-                 focus:border-transparent transition duration-200"
+               focus:outline-none focus:ring-2 focus:ring-teal-500 
+               focus:border-transparent transition duration-200"
         />
       </div>
 
@@ -523,16 +588,25 @@ function NewEmail() {
         </label>
         <div
           className="rounded-lg shadow-sm border border-slate-200
-               focus-within:outline-none focus-within:ring-2 focus-within:ring-teal-500 
-               focus-within:border-transparent transition duration-200"
+             focus-within:outline-none focus-within:ring-2 focus-within:ring-teal-500 
+             focus-within:border-transparent transition duration-200"
         >
-          <textarea
+          <ReactQuill
+            theme="snow"
             value={emailData.body}
-            onChange={(e) => handleInputChange("body", e.target.value)}
-            placeholder={`Hello John Doe,\n\nWelcome to Nortifi!`}
-            rows="8"
-            className="w-full p-4 resize-none bg-transparent 
-                 focus:outline-none focus:ring-0"
+            onChange={(content) => handleInputChange("body", content)}
+            placeholder="Hello John Doe, Welcome to Nortifi!"
+            className="bg-white rounded-md min-h-[150px]"
+            style={{ height: "150px" }}
+            modules={{
+              toolbar: [
+                [{ header: [1, 2, 3, false] }],
+                ["bold", "italic", "underline", "strike"],
+                [{ list: "ordered" }, { list: "bullet" }],
+                ["link", "image"],
+                ["clean"],
+              ],
+            }}
           />
         </div>
       </div>
@@ -542,10 +616,10 @@ function NewEmail() {
         <button
           onClick={handleNext}
           className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
-               bg-gradient-to-r from-teal-500 to-teal-600 
-               text-white text-base flex items-center gap-2
-               hover:from-teal-600 hover:to-teal-700 
-               transition duration-200"
+             bg-gradient-to-r from-teal-500 to-teal-600 
+             text-white text-base flex items-center gap-2
+             hover:from-teal-600 hover:to-teal-700 
+             transition duration-200"
         >
           Next
           <ArrowRight className="w-5 h-5" />
@@ -567,7 +641,7 @@ function NewEmail() {
       <div className="flex space-x-4 mb-6">
         <button
           onClick={() => handleInputChange("recipientMode", "individual")}
-          className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${emailData.recipientMode === "individual"
+          className={`px-6 py-3 rounded-md shadow-sm font-medium text-base transition duration-200 ${emailData.recipientMode === "individual"
             ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
@@ -576,7 +650,7 @@ function NewEmail() {
         </button>
         <button
           onClick={() => handleInputChange("recipientMode", "bulk")}
-          className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${emailData.recipientMode === "bulk"
+          className={`px-6 py-3 rounded-md shadow-sm font-medium text-base transition duration-200 ${emailData.recipientMode === "bulk"
             ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
@@ -591,143 +665,157 @@ function NewEmail() {
         <p className="text-xs text-slate-500 mb-2">
           Make sure the contacts with the emails you want to use are added
           first.{" "}
-          <a href="/contacts" className="text-teal-500 hover:underline">
+          <a href="/add-contact" className="text-teal-500 hover:underline">
             Go to Contacts
           </a>
         </p>
 
         <label className="block text-xs font-semibold text-slate-700 mb-2">
           Recipients <span className="text-red-500">*</span>
-          {emailData.recipientMode === "individual" && (
-            <span className="text-slate-500 text-xs font-normal">
-              {" "}
-              (Separate multiple emails with a comma)
-            </span>
-          )}
         </label>
-        {emailData.recipientMode === "individual" ? (
-          <div
-            className="rounded-lg shadow-sm border border-slate-200
-                       focus-within:outline-none focus-within:ring-2 focus-within:ring-teal-500 
-                       focus-within:border-transparent transition duration-200"
-          >
-            <textarea
-              value={emailData.recipients}
-              onChange={(e) => handleInputChange("recipients", e.target.value)}
-              placeholder="team@nortifi.com, john.doe@nortifi.com"
-              rows="4"
-              className="w-full p-4 resize-none bg-transparent 
-                         focus:outline-none focus:ring-0"
-            />
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          {/* Gender Filter */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Gender
+            </label>
+            <select
+              value={filters.gender}
+              onChange={(e) => setFilters((prev) => ({ ...prev, gender: e.target.value }))}
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">All</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
           </div>
-        ) : (
-          <div className="border border-slate-200 rounded-lg shadow-sm">
-            {loading ? (
-              <p className="p-4 text-slate-500 text-sm">Loading contacts...</p>
-            ) : contacts.length === 0 ? (
-              <p className="p-4 text-slate-500 text-sm">
-                No contacts available. Please add contacts to proceed.
-              </p>
-            ) : (
-              <div className="max-h-64 overflow-y-auto">
-                <table className="w-full text-sm text-slate-700">
-                  <thead>
-                    <tr className="bg-slate-50 sticky top-0">
-                      <th className="px-4 py-3 text-left font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={
+
+          {/* Website Filter */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Website
+            </label>
+            <select
+              value={filters.website}
+              onChange={(e) => setFilters((prev) => ({ ...prev, website: e.target.value }))}
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">All</option>
+              {Array.from(new Set(contacts.map((c) => c.website))).map((site) => (
+                <option key={site} value={site}>
+                  {site}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+
+        <div className="border border-slate-200 rounded-lg shadow-sm">
+          {loading ? (
+            <p className="p-4 text-slate-500 text-sm">Loading contacts...</p>
+          ) : contacts.length === 0 ? (
+            <p className="p-4 text-slate-500 text-sm">
+              No contacts available. Please add contacts to proceed.
+            </p>
+          ) : (
+            <div className="max-h-64 overflow-y-auto">
+              <table className="w-full text-sm text-slate-700">
+                <thead>
+                  <tr className="bg-slate-50 sticky top-0">
+                    <th className="px-4 py-3 text-left font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedContacts.length ===
+                          contacts.filter(
+                            (contact) =>
+                              !emailData.exclude_unsubscribed ||
+                              !contact.unsubscribed
+                          ).length
+                        }
+                        onChange={() => {
+                          if (
                             selectedContacts.length ===
                             contacts.filter(
                               (contact) =>
                                 !emailData.exclude_unsubscribed ||
                                 !contact.unsubscribed
                             ).length
+                          ) {
+                            setSelectedContacts([]);
+                            setEmailData((prev) => ({
+                              ...prev,
+                              recipients: "",
+                            }));
+                          } else {
+                            const filteredContacts = emailData.exclude_unsubscribed
+                              ? contacts.filter((c) => !c.unsubscribed)
+                              : contacts;
+                            const newSelected = filteredContacts.map(
+                              (c) => c.contact_id
+                            );
+                            setSelectedContacts(newSelected);
+                            setEmailData((prev) => ({
+                              ...prev,
+                              recipients: filteredContacts
+                                .map((c) => c.email)
+                                .join(", "),
+                            }));
                           }
-                          onChange={() => {
-                            if (
-                              selectedContacts.length ===
-                              contacts.filter(
-                                (contact) =>
-                                  !emailData.exclude_unsubscribed ||
-                                  !contact.unsubscribed
-                              ).length
-                            ) {
-                              setSelectedContacts([]);
-                              setEmailData((prev) => ({
-                                ...prev,
-                                recipients: "",
-                              }));
-                            } else {
-                              const filteredContacts =
-                                emailData.exclude_unsubscribed
-                                  ? contacts.filter(
-                                    (contact) => !contact.unsubscribed
-                                  )
-                                  : contacts;
-                              const newSelected = filteredContacts.map(
-                                (contact) => contact.contact_id
-                              );
-                              setSelectedContacts(newSelected);
-                              setEmailData((prev) => ({
-                                ...prev,
-                                recipients: filteredContacts
-                                  .map((contact) => contact.email)
-                                  .join(", "),
-                              }));
+                        }}
+                        className="w-4 h-4 text-teal-500 border-slate-200 rounded 
+                                 focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+                      />
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold">First Name</th>
+                    <th className="px-4 py-3 text-left font-semibold">Last Name</th>
+                    <th className="px-4 py-3 text-left font-semibold">Email</th>
+                    <th className="px-4 py-3 text-left font-semibold">Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contacts
+                    .filter(
+                      (c) =>
+                        !emailData.exclude_unsubscribed || !c.unsubscribed
+                    )
+
+                    .filter((c) =>
+                      filters.gender ? c.gender === filters.gender : true
+                    )
+
+                    .filter((c) =>
+                      filters.website ? c.website === filters.website : true
+                    )
+                    .map((contact) => (
+                      <tr
+                        key={contact.contact_id}
+                        className="border-t border-slate-200 hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedContacts.includes(contact.contact_id)}
+                            onChange={() =>
+                              handleContactToggle(contact.contact_id)
                             }
-                          }}
-                          className="w-4 h-4 text-teal-500 border-slate-200 rounded 
+                            className="w-4 h-4 text-teal-500 border-slate-200 rounded 
                                      focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
-                        />
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold">
-                        Name
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold">
-                        Email
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold">
-                        Phone
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contacts
-                      .filter(
-                        (contact) =>
-                          !emailData.exclude_unsubscribed ||
-                          !contact.unsubscribed
-                      )
-                      .map((contact) => (
-                        <tr
-                          key={contact.contact_id}
-                          className="border-t border-slate-200 hover:bg-slate-50"
-                        >
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedContacts.includes(
-                                contact.contact_id
-                              )}
-                              onChange={() =>
-                                handleContactToggle(contact.contact_id)
-                              }
-                              className="w-4 h-4 text-teal-500 border-slate-200 rounded 
-                                         focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
-                            />
-                          </td>
-                          <td className="px-4 py-3">{contact.name}</td>
-                          <td className="px-4 py-3">{contact.email}</td>
-                          <td className="px-4 py-3">{contact.phone_number}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                          />
+                        </td>
+                        <td className="px-4 py-3">{contact.first_name}</td>
+                        <td className="px-4 py-3">{contact.last_name}</td>
+                        <td className="px-4 py-3">{contact.email}</td>
+                        <td className="px-4 py-3">{contact.phone_number}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Exclude Unsubscribed Checkbox */}
@@ -740,7 +828,7 @@ function NewEmail() {
             handleInputChange("exclude_unsubscribed", e.target.checked)
           }
           className="w-4 h-4 text-teal-500 border-slate-200 rounded 
-                     focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+                   focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
         />
         <label
           htmlFor="exclude_unsubscribed"
@@ -755,10 +843,10 @@ function NewEmail() {
         <button
           onClick={handlePrevious}
           className="px-8 py-3 cursor-pointer rounded-md shadow-md 
-                     bg-gradient-to-r from-slate-500 to-slate-600 
-                     text-white text-base flex items-center gap-2
-                     hover:from-slate-600 hover:to-slate-700 
-                     transition duration-200"
+                   bg-gradient-to-r from-slate-500 to-slate-600 
+                   text-white text-base flex items-center gap-2
+                   hover:from-slate-600 hover:to-slate-700 
+                   transition duration-200"
         >
           <ArrowLeft className="w-5 h-5" />
           Previous
@@ -766,10 +854,10 @@ function NewEmail() {
         <button
           onClick={handleNext}
           className="px-8 py-3 cursor-pointer rounded-md shadow-md 
-                     bg-gradient-to-r from-teal-500 to-teal-600 
-                     text-white text-base flex items-center gap-2
-                     hover:from-teal-600 hover:to-teal-700 
-                     transition duration-200"
+                   bg-gradient-to-r from-teal-500 to-teal-600 
+                   text-white text-base flex items-center gap-2
+                   hover:from-teal-600 hover:to-teal-700 
+                   transition duration-200"
         >
           Next
           <ArrowRight className="w-5 h-5" />
@@ -777,6 +865,7 @@ function NewEmail() {
       </div>
     </div>
   );
+
 
   const renderSchedulingTab = () => (
     <div className="space-y-6">
@@ -872,7 +961,7 @@ function NewEmail() {
         </>
       )}
 
-      {/* Force Send Checkbox */}
+      {/* Force Send Checkbox
       <div className="flex items-center">
         <input
           type="checkbox"
@@ -888,7 +977,7 @@ function NewEmail() {
         >
           Force send (bypass normal validation)
         </label>
-      </div>
+      </div> */}
 
       {/* Footer Locations Section */}
       <div>
@@ -991,8 +1080,8 @@ function NewEmail() {
           onClick={handleSendEmail}
           disabled={loading}
           className={`px-8 py-3 cursor-pointer rounded-lg shadow-md 
-                   text-white text-base flex items-center gap-2
-                   transition duration-200 ${loading
+             text-white text-base flex items-center gap-2
+             transition duration-200 ${loading
               ? "bg-slate-400 cursor-not-allowed"
               : emailData.send_type === "scheduled"
                 ? "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
@@ -1000,7 +1089,10 @@ function NewEmail() {
             }`}
         >
           {loading ? (
-            "Processing..."
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Processing...
+            </>
           ) : emailData.send_type === "scheduled" ? (
             <>
               Schedule Email
@@ -1013,6 +1105,7 @@ function NewEmail() {
             </>
           )}
         </button>
+
       </div>
     </div>
   );
@@ -1035,7 +1128,13 @@ function NewEmail() {
   const tabs = ["ADVANCED", "EMAIL", "RECIPIENTS", "SCHEDULING & SETTINGS"];
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 relative">
+      {/* Spinner Overlay */}
+      {showSpinner && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
+          <Spinner />
+        </div>
+      )}
       {/*Sidebar*/}
       <Sidebar />
       <div className="flex-1 overflow-y-auto">
@@ -1050,9 +1149,9 @@ function NewEmail() {
                   </h2>
                   <button
                     onClick={handleDiscardChanges}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
                   >
-                    ✕
+                    <X />
                   </button>
                 </div>
               </div>

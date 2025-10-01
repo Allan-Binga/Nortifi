@@ -22,10 +22,10 @@ const decryptPassword = (encrypted) => {
 // Send Email with Nodemailer
 const sendEmail = async (req, res) => {
   const userId = req.userId;
-  console.log(userId);
 
   try {
     const {
+      campaignId, // <-- added support
       label,
       subject,
       body,
@@ -43,8 +43,6 @@ const sendEmail = async (req, res) => {
       smtpConfigId,
       saveAsDraft = false,
     } = req.body;
-    console.log(subject)
-    console.log(body)
 
     if (!subject || !body) {
       return res
@@ -76,53 +74,103 @@ const sendEmail = async (req, res) => {
     const smtpPassword = decryptPassword(smtpConfig.smtp_password);
     const fromEmail = smtpConfig.smtp_user;
 
-    // --- Insert Campaign ---
-    const status = "pending"; // default for active campaigns
+    // --- Common values ---
+    const status = saveAsDraft ? "draft" : "pending";
     const isDraft = saveAsDraft;
-
-    const insertCampaignSQL = `
-      INSERT INTO campaigns
-        (label, subject, body, from_name, from_email, reply_to_email, cc, bcc,
-         user_id, status, scheduled_at, send_type, timezone, recurring_rule,
-         footer_locations, smtp_config_id, is_draft)
-      VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-      RETURNING campaign_id, scheduled_at
-    `;
-
     const utcScheduledAt = scheduled_at
       ? moment.tz(scheduled_at, campaignTimezone || "UTC").toDate()
       : null;
 
-    const campaignRes = await client.query(insertCampaignSQL, [
-      label || null,
-      subject,
-      body,
-      fromName || "Nortify",
-      fromEmail,
-      replyToEmail || fromEmail,
-      cc || [],
-      bcc || [],
-      userId,
-      status,
-      utcScheduledAt,
-      send_type,
-      campaignTimezone || null,
-      recurring_rule || null,
-      footerLocations ? JSON.stringify(footerLocations) : "[]",
-      smtpConfig.config_id,
-      isDraft,
-    ]);
+    let finalCampaignId = campaignId;
 
-    const campaignId = campaignRes.rows[0].campaign_id;
+    // --- Update or Insert Campaign ---
+    if (campaignId) {
+      // Update existing campaign
+      const updateSQL = `
+        UPDATE campaigns
+        SET label = $1, subject = $2, body = $3, from_name = $4, from_email = $5,
+            reply_to_email = $6, cc = $7, bcc = $8, status = $9,
+            scheduled_at = $10, send_type = $11, timezone = $12, recurring_rule = $13,
+            footer_locations = $14, smtp_config_id = $15, is_draft = $16
+        WHERE campaign_id = $17 AND user_id = $18
+        RETURNING campaign_id
+      `;
 
-    // --- Drafts Stop Here ---
-    if (saveAsDraft) {
-      return res.status(200).json({
-        success: true,
-        message: "Draft saved successfully",
+      const updateRes = await client.query(updateSQL, [
+        label || null,
+        subject,
+        body,
+        fromName || "Nortify",
+        fromEmail,
+        replyToEmail || fromEmail,
+        cc || [],
+        bcc || [],
+        status,
+        utcScheduledAt,
+        send_type,
+        campaignTimezone || null,
+        recurring_rule || null,
+        footerLocations ? JSON.stringify(footerLocations) : "[]",
+        smtpConfig.config_id,
+        isDraft,
         campaignId,
-      });
+        userId,
+      ]);
+
+      if (!updateRes.rows.length) {
+        return res.status(404).json({ success: false, message: "Draft not found" });
+      }
+
+      finalCampaignId = updateRes.rows[0].campaign_id;
+
+      if (saveAsDraft) {
+        return res.status(200).json({
+          success: true,
+          message: "Draft updated successfully",
+          campaignId: finalCampaignId,
+        });
+      }
+    } else {
+      // Insert new campaign
+      const insertSQL = `
+        INSERT INTO campaigns
+          (label, subject, body, from_name, from_email, reply_to_email, cc, bcc,
+           user_id, status, scheduled_at, send_type, timezone, recurring_rule,
+           footer_locations, smtp_config_id, is_draft)
+        VALUES
+          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+        RETURNING campaign_id, scheduled_at
+      `;
+
+      const insertRes = await client.query(insertSQL, [
+        label || null,
+        subject,
+        body,
+        fromName || "Nortify",
+        fromEmail,
+        replyToEmail || fromEmail,
+        cc || [],
+        bcc || [],
+        userId,
+        status,
+        utcScheduledAt,
+        send_type,
+        campaignTimezone || null,
+        recurring_rule || null,
+        footerLocations ? JSON.stringify(footerLocations) : "[]",
+        smtpConfig.config_id,
+        isDraft,
+      ]);
+
+      finalCampaignId = insertRes.rows[0].campaign_id;
+
+      if (saveAsDraft) {
+        return res.status(200).json({
+          success: true,
+          message: "Draft created successfully",
+          campaignId: finalCampaignId,
+        });
+      }
     }
 
     // --- Resolve Recipients ---
@@ -157,7 +205,7 @@ const sendEmail = async (req, res) => {
         await client.query(
           `INSERT INTO campaign_recipients (campaign_id, contact_id, status, filter_reason) 
            VALUES ($1,$2,'skipped','unsubscribed')`,
-          [campaignId, contact_id]
+          [finalCampaignId, contact_id]
         );
       }
     }
@@ -168,20 +216,20 @@ const sendEmail = async (req, res) => {
     if (!shouldSendNow) {
       await client.query(
         `UPDATE campaigns SET status = 'scheduled' WHERE campaign_id = $1`,
-        [campaignId]
+        [finalCampaignId]
       );
 
       for (const r of recipientsToSend) {
         await client.query(
           `INSERT INTO campaign_recipients (campaign_id, contact_id, status) VALUES ($1, $2, 'pending')`,
-          [campaignId, r.contact_id]
+          [finalCampaignId, r.contact_id]
         );
       }
 
       return res.status(200).json({
         success: true,
         message: "Campaign scheduled",
-        campaignId,
+        campaignId: finalCampaignId,
         recipients_count: recipientsToSend.length,
       });
     }
@@ -199,7 +247,6 @@ const sendEmail = async (req, res) => {
 
     // --- Send Emails ---
     for (const recipient of recipientsToSend) {
-      // Build footer
       const footerParts = [
         `<p style="font-size:12px;color:#666;margin:20px 0;">
           Don’t want to receive these emails? 
@@ -236,19 +283,19 @@ const sendEmail = async (req, res) => {
       await client.query(
         `INSERT INTO campaign_recipients (campaign_id, contact_id, status, sent_at) 
          VALUES ($1, $2, 'sent', NOW())`,
-        [campaignId, recipient.contact_id]
+        [finalCampaignId, recipient.contact_id]
       );
     }
 
     await client.query(
       `UPDATE campaigns SET status = 'sent' WHERE campaign_id = $1`,
-      [campaignId]
+      [finalCampaignId]
     );
 
     return res.status(200).json({
       success: true,
       message: `Campaign sent to ${recipientsToSend.length} recipients.`,
-      campaignId,
+      campaignId: finalCampaignId,
       recipients: recipientsToSend.map((r) => r.email),
     });
   } catch (error) {
@@ -489,9 +536,8 @@ const sendEmailAWS = async (req, res) => {
           },
           Subject: { Charset: "UTF-8", Data: subject },
         },
-        Source: `"${fromName || "Default Sender"}" <${
-          fromEmail || process.env.DEFAULT_FROM_EMAIL
-        }>`,
+        Source: `"${fromName || "Default Sender"}" <${fromEmail || process.env.DEFAULT_FROM_EMAIL
+          }>`,
         ReplyToAddresses: [replyToEmail || process.env.DEFAULT_REPLYTO],
       };
 
@@ -581,6 +627,32 @@ const getEmailCampaigns = async (req, res) => {
   }
 };
 
+// Get Single Campaign
+const getSingleCampaign = async (req, res) => {
+  const userId = req.userId; 
+  const { campaignId } = req.params;
+
+  try {
+    const query = `
+      SELECT * FROM campaigns 
+      WHERE campaign_id = $1 AND user_id = $2
+      LIMIT 1
+    `;
+    const values = [campaignId, userId];
+
+    const result = await client.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Campaign not found" });
+    }
+
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching campaign:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 //Get Emails
 const getEmails = async (req, res) => {
   try {
@@ -634,6 +706,7 @@ module.exports = {
   sendEmail,
   unsubscribeEmail,
   getEmailCampaigns,
+  getSingleCampaign,
   getEmails,
   sendEmailAWS,
   getCampaignRecipients,

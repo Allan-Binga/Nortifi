@@ -1,5 +1,5 @@
 const express = require("express")
-const { registerSMTPServer, getSMTPServers, getSMPTConfiguration, updateSMPTConfigurationDetails, deleteSMTPServer } = require("../controllers/smtp")
+const { registerSMTPServer, getSMTPServers, getSMPTConfiguration, updateSMPTConfigurationDetails, deleteSMTPServer, getSingleSMTPServer } = require("../controllers/smtp")
 const { authUser } = require("../middleware/jwt")
 
 const router = express.Router()

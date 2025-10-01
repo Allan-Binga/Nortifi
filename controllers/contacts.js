@@ -30,27 +30,26 @@ const createContact = async (req, res) => {
     const { firstName, lastName, email, website, phoneNumber, address, country, state, gender } = req.body;
     const userId = req.userId;
 
-    // Generate unique unsubscribe token
     const unsubscribeToken = crypto.randomBytes(20).toString("hex");
 
     const result = await client.query(
       `INSERT INTO contacts (
-      user_id,
-      phone_number,
-      email,
-      first_name,
-      last_name,
-      address,
-      country,
-      state,
-      gender,
-      website,
-      unsubscribe_token
-    )
-    VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-    )
-    RETURNING *`,
+        user_id,
+        phone_number,
+        email,
+        first_name,
+        last_name,
+        address,
+        country,
+        state,
+        gender,
+        website,
+        unsubscribe_token
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+      )
+      RETURNING *`,
       [
         userId,
         phoneNumber,
@@ -66,16 +65,28 @@ const createContact = async (req, res) => {
       ]
     );
 
-
     res.status(201).json({
       message: "Contact created successfully.",
       contact: result.rows[0],
     });
   } catch (error) {
     console.error("Error creating contact:", error);
+
+    if (error.code === "23505") {
+      // Unique constraint violation
+      let field = "field";
+      if (error.detail.includes("email")) field = "Email";
+      if (error.detail.includes("phone_number")) field = "Phone number";
+
+      return res.status(400).json({
+        error: `${field} is already taken. Please use a different one.`,
+      });
+    }
+
     res.status(500).json({ error: "Failed to create contact" });
   }
 };
+
 
 //Add Contacts via CSV
 const addViaCSV = async (req, res) => {

@@ -6,6 +6,7 @@ const {
   unsubscribeEmail,
   getCampaignRecipients,
   sendEmail,
+  getSingleCampaign,
 } = require("../controllers/emails");
 const { authUser } = require("../middleware/jwt");
 
@@ -15,6 +16,7 @@ router.get("/unsubscribe", unsubscribeEmail);
 router.post("/aws/send-email", authUser, sendEmailAWS);
 router.post("/smtp/send-email", authUser, sendEmail)
 router.get("/all-campaigns", authUser, getEmailCampaigns);
+router.get("/campaign/:campaignId", authUser, getSingleCampaign)
 router.get("/all-emails", authUser, getEmails);
 router.get("/campaign-recipients", authUser, getCampaignRecipients)
 

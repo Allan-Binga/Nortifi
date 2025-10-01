@@ -13,18 +13,21 @@ function Sidebar() {
 
     const navItems = [
         { name: "Home", path: "/home", icon: <Home className="w-5 h-5 mr-2" /> },
+        { name: "New Email", path: "/new-email", icon: <Mail className="w-5 h-5 mr-2" /> },
         {
             name: "Contacts",
             icon: <Users className="w-5 h-5 mr-2" />,
-            subItems: [{ name: "Create contact", path: "/add-contact" }, { name: "View Contacts", path: "/contacts" }],
+            subItems: [
+                { name: "Create contact", path: "/add-contact" },
+                { name: "View Contacts", path: "/contacts" },
+            ],
         },
-        { name: "Websites", path: "/sites", icon: <Globe className="w-5 h-5 mr-2" /> },
+        { name: "Manage Websites", path: "/sites", icon: <Globe className="w-5 h-5 mr-2" /> },
         {
             name: "SMTP Servers",
             icon: <Server className="w-5 h-5 mr-2" />,
             subItems: [{ name: "New Server", path: "/register-smtp" }],
         },
-        { name: "Send Email", path: "/new-email", icon: <Mail className="w-5 h-5 mr-2" /> },
         { name: "All Emails", path: "/emails", icon: <Mails className="w-5 h-5 mr-2" /> },
     ];
 
@@ -65,11 +68,11 @@ function Sidebar() {
                 Nortifi
             </h2>
 
-            <nav className="flex-1 flex flex-col justify-center">
+            <nav className="flex-1 flex flex-col justify-start mt-10">
                 {navItems.map((item) => (
                     <div
                         key={item.name}
-                        className="relative group"
+                        className="relative"
                         onMouseEnter={() => item.subItems && setActiveDropdown(item.name)}
                         onMouseLeave={() => item.subItems && setActiveDropdown(null)}
                     >
@@ -82,6 +85,7 @@ function Sidebar() {
 
                                 {activeDropdown === item.name && (
                                     <div className="absolute left-full top-0 ml-2 bg-white border border-slate-200 rounded shadow-lg flex flex-col space-y-2 w-48 z-50 py-2">
+                                        {/* Arrow */}
                                         <div className="absolute right-full top-1/2 -translate-y-1/2 mr-[-1px]">
                                             <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[8px] border-r-slate-200"></div>
                                             <div className="absolute top-0 left-[1px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[8px] border-r-white"></div>
@@ -99,7 +103,7 @@ function Sidebar() {
                                                 {smtps.map((smtp, index) => (
                                                     <Link
                                                         key={smtp.config_id}
-                                                        to={`/smtp/${smtp.config_id}`}
+                                                        to={`/smtp/servers/${smtp.config_id}`}
                                                         className="flex items-center text-gray-600 text-sm hover:text-white hover:bg-green-400 px-4 py-3 rounded transition-colors duration-200"
                                                     >
                                                         <div className="w-6 h-6 flex items-center justify-center bg-green-100 text-green-800 rounded-full mr-3 flex-shrink-0">
@@ -122,7 +126,6 @@ function Sidebar() {
                                         )}
                                     </div>
                                 )}
-
                             </>
                         ) : (
                             <Link

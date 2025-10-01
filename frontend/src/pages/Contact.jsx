@@ -4,8 +4,11 @@ import axios from "axios";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
 import { Plus, X, Loader2, Upload } from "lucide-react";
+import Spinner from "../components/Spinner";
+import { useNavigate } from "react-router-dom";
 
 function Contact() {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -20,6 +23,7 @@ function Contact() {
   });
   const [editingContact, setEditingContact] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSpinner, setShowSpinner] = useState(false);
   const [errors, setErrors] = useState({});
   const [csvFile, setCSVFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -101,6 +105,7 @@ function Contact() {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
+
       const submitData = {
         ...formData,
         phoneNumber: formData.phoneNumber
@@ -108,30 +113,15 @@ function Contact() {
           : "",
       };
 
-      if (editingContact) {
-        const response = await axios.patch(
-          `${backend}/contacts/update-contact/${editingContact.contact_id}`,
-          submitData,
-          { withCredentials: true }
-        );
-        setContacts((prev) =>
-          prev.map((contact) =>
-            contact.contact_id === editingContact.contact_id
-              ? response.data.contact
-              : contact
-          )
-        );
-        notify.success("Contact updated successfully");
-      } else {
-        const response = await axios.post(
-          `${backend}/contacts/create-contact`,
-          submitData,
-          { withCredentials: true }
-        );
-        setContacts((prev) => [...prev, response.data.contact]);
-        notify.success("Contact created successfully");
-      }
+      const response = await axios.post(
+        `${backend}/contacts/create-contact`,
+        submitData,
+        { withCredentials: true }
+      );
 
+      notify.success("Contact created successfully");
+
+      // reset form
       setFormData({
         firstName: "",
         lastName: "",
@@ -144,17 +134,25 @@ function Contact() {
         state: "",
         gender: ""
       });
-      setEditingContact(null);
       setErrors({});
+
+      setShowSpinner(true);
+      setTimeout(() => {
+        navigate("/contacts")
+      }, 2000)
     } catch (error) {
-      notify.error(
-        editingContact ? "Failed to update contact" : "Failed to create contact"
-      );
+      const backendMessage = error.response?.data?.error;
+      if (backendMessage) {
+        notify.error(backendMessage);
+      } else {
+        notify.error("Failed to create contact");
+      }
       console.error("Error:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   const handleUploadCSV = async (e) => {
     if (!csvFile) {
@@ -193,8 +191,6 @@ function Contact() {
     }
   };
 
-
-
   const handleCancelEdit = () => {
     setEditingContact(null);
     setFormData({
@@ -213,7 +209,13 @@ function Contact() {
   };
 
   return (
-    <div className="flex h-screen flex bg-gray-100">
+    <div className="flex h-screen bg-gray-100 relative">
+      {/* Spinner Overlay */}
+      {showSpinner && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
+          <Spinner />
+        </div>
+      )}
       {/*Sidebar*/}
       <Sidebar />
       <div className="flex-1 overflow-y-auto">

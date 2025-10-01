@@ -195,14 +195,14 @@ const getSMPTConfiguration = async (req, res) => {
 const updateSMPTConfigurationDetails = async (req, res) => {
   const { smtpServerId } = req.params;
   try {
-  } catch (error) {}
+  } catch (error) { }
 };
 
 //Delete SMTP server Details
 const deleteSMTPServer = async (req, res) => {
   const { smtpServerId } = req.params;
   try {
-  } catch (error) {}
+  } catch (error) { }
 };
 
 module.exports = {
