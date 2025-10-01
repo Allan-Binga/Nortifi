@@ -10,7 +10,10 @@ import Configurations from "./pages/smtpConfiguration";
 import RegisterSMTP from "./pages/RegisterSMTP";
 import Home from "./pages/Home";
 import Unsubscribe from "./pages/Unsubsribe";
-import AddContact from "./pages/AddContact";
+import VerifyEmail from "./pages/VerifyEmail";
+import ResetPassword from "./pages/ResetPassword";
+import Sites from "./pages/Sites";
+import Contacts from "./pages/All Contacts";
 
 function App() {
   return (
@@ -20,14 +23,17 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/home" element={<Home />} />
         <Route path="/sign-up" element={<SignUp />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/sign-in" element={<SignIn />} />
-        <Route path="/contacts" element={<Contact />} />
-        <Route path="/add-contact" element={<AddContact />} />
+        <Route path="/add-contact" element={<Contact />} />
+        <Route path="/contacts" element={<Contacts />} />
         <Route path="/new-email" element={<NewEmail />} />
         <Route path="/emails" element={<Emails />} />
         <Route path="/smtp-configuration" element={<Configurations />} />
+        <Route path="/sites" element={<Sites />} />
         <Route path="/register-smtp" element={<RegisterSMTP />} />
         <Route path="/unsubscribe" element={<Unsubscribe />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </Router>
   );

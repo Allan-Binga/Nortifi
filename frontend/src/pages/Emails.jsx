@@ -1,4 +1,4 @@
-import Navbar from "../components/Navbar";
+import Sidebar from "../components/Sidebar";
 import { useState, useEffect } from "react";
 import { Mail, Calendar, User, Eye, X, Send } from "lucide-react";
 import axios from "axios";
@@ -24,9 +24,9 @@ function Emails() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-gray-100">
-      <Navbar />
-
+    <div className="flex min-h-screen bg-gray-100">
+      {/*Sidebar*/}
+      <Sidebar />
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 mt-18">
         <div className="text-center mb-12">
           <div className="flex justify-center mb-6">
@@ -57,15 +57,14 @@ function Emails() {
               </div>
               <div className="flex items-center gap-2">
                 <span
-                  className={`px-2 py-1 text-xs rounded-full ${
-                    c.status === "sent"
-                      ? "bg-green-100 text-green-700"
-                      : c.status === "scheduled"
+                  className={`px-2 py-1 text-xs rounded-full ${c.status === "sent"
+                    ? "bg-green-100 text-green-700"
+                    : c.status === "scheduled"
                       ? "bg-blue-100 text-blue-700"
                       : c.status === "draft"
-                      ? "bg-gray-100 text-gray-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
+                        ? "bg-gray-100 text-gray-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
                 >
                   {c.status}
                 </span>
@@ -151,15 +150,14 @@ function Emails() {
                 <div>
                   <strong className="text-gray-700">Status:</strong>
                   <span
-                    className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
-                      selectedCampaign.status === "sent"
-                        ? "bg-green-100 text-green-700"
-                        : selectedCampaign.status === "scheduled"
+                    className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${selectedCampaign.status === "sent"
+                      ? "bg-green-100 text-green-700"
+                      : selectedCampaign.status === "scheduled"
                         ? "bg-blue-100 text-blue-700"
                         : selectedCampaign.status === "draft"
-                        ? "bg-gray-100 text-gray-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
+                          ? "bg-gray-100 text-gray-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
                   >
                     {selectedCampaign.status}
                   </span>

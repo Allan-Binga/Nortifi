@@ -82,7 +82,7 @@ function SignIn() {
       const msg = error.message?.toLowerCase?.();
       if (msg?.includes("already logged in")) {
         notify.info("Already logged in");
-        navigate("/emails");
+        navigate("/home");
       } else {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         notify.error(error.message || "Something went wrong");
@@ -119,6 +119,7 @@ function SignIn() {
         throw new Error(data.message || "Failed to send reset email");
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       notify.success(data.message);
       setShowForgotModal(false);
       setEmail("");
@@ -164,11 +165,10 @@ function SignIn() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     required
-                    className={`w-full pl-12 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${
-                      fieldErrors.email
-                        ? "border-red-500 focus:ring-red-500"
-                        : "border-gray-300 focus:ring-gray-100"
-                    }`}
+                    className={`w-full pl-12 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${fieldErrors.email
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-gray-100"
+                      }`}
                   />
                   {fieldErrors.email && (
                     <p className="text-red-500 text-xs mt-1 ml-2">
@@ -189,11 +189,10 @@ function SignIn() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     required
-                    className={`w-full pl-12 pr-10 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${
-                      fieldErrors.password
-                        ? "border-red-500 focus:ring-red-500"
-                        : "border-gray-300 focus:ring-gray-100"
-                    }`}
+                    className={`w-full pl-12 pr-10 py-3 rounded-full border bg-white focus:outline-none focus:ring-2 placeholder:text-sm ${fieldErrors.password
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-gray-100"
+                      }`}
                   />
                   <button
                     type="button"
@@ -217,7 +216,7 @@ function SignIn() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    className="text-sm text-writerTeal hover:underline"
+                    className="text-sm text-writerTeal hover:underline cursor-pointer"
                     onClick={() => setShowForgotModal(true)}
                   >
                     Forgot password?

@@ -27,18 +27,45 @@ const getContacts = async (req, res) => {
 // Create a contact
 const createContact = async (req, res) => {
   try {
-    const { name, email, phoneNumber, tag, website } = req.body;
+    const { firstName, lastName, email, website, phoneNumber, address, country, state, gender } = req.body;
     const userId = req.userId;
 
     // Generate unique unsubscribe token
     const unsubscribeToken = crypto.randomBytes(20).toString("hex");
 
     const result = await client.query(
-      `INSERT INTO contacts (user_id, phone_number, email, name, tag, website, unsubscribe_token)
-       VALUES ($1, $2, $3, $4, COALESCE($5, 'New Client'), $6, $7)
-       RETURNING *`,
-      [userId, phoneNumber, email, name, tag, website, unsubscribeToken]
+      `INSERT INTO contacts (
+      user_id,
+      phone_number,
+      email,
+      first_name,
+      last_name,
+      address,
+      country,
+      state,
+      gender,
+      website,
+      unsubscribe_token
+    )
+    VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    )
+    RETURNING *`,
+      [
+        userId,
+        phoneNumber,
+        email,
+        firstName,
+        lastName,
+        address,
+        country,
+        state,
+        gender,
+        website,
+        unsubscribeToken,
+      ]
     );
+
 
     res.status(201).json({
       message: "Contact created successfully.",
@@ -120,18 +147,44 @@ const addViaCSV = async (req, res) => {
 const updateContact = async (req, res) => {
   try {
     const { id } = req.params; // contact_id from route param
-    const { phoneNumber, email, name, tag } = req.body;
+    const {
+      phoneNumber,
+      email,
+      firstName,
+      lastName,
+      website,
+      address,
+      country,
+      state,
+      gender,
+    } = req.body;
 
     const result = await client.query(
       `UPDATE contacts
        SET phone_number = COALESCE($1, phone_number),
            email = COALESCE($2, email),
-           name = COALESCE($3, name),
-           tag = COALESCE($4, tag),
+           first_name = COALESCE($3, first_name),
+           last_name = COALESCE($4, last_name),
+           website = COALESCE($5, website),
+           address = COALESCE($6, address),
+           country = COALESCE($7, country),
+           state = COALESCE($8, state),
+           gender = COALESCE($9, gender),
            updated_at = NOW()
-       WHERE contact_id = $5
+       WHERE contact_id = $10
        RETURNING *`,
-      [phoneNumber, email, name, tag, id]
+      [
+        phoneNumber,
+        email,
+        firstName,
+        lastName,
+        website,
+        address,
+        country,
+        state,
+        gender,
+        id,
+      ]
     );
 
     if (result.rows.length === 0) {
@@ -147,6 +200,7 @@ const updateContact = async (req, res) => {
     res.status(500).json({ error: "Failed to update contact" });
   }
 };
+
 
 // Delete a contact
 const deleteContact = async (req, res) => {

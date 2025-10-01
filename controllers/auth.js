@@ -2,6 +2,8 @@ const client = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Joi = require("joi");
+const { sendEmailVerificationEmail } = require("./emailService")
+const crypto = require("crypto");
 
 // Joi schema for sign up
 const signUpSchema = Joi.object({
@@ -69,8 +71,22 @@ const signUp = async (req, res) => {
       hashedPassword,
     ]);
 
+    const newUser = result.rows[0]
+
+    //Generate Verification Token
+    const verificationToken = crypto.randomBytes(32).toString("hex")
+
+    await client.query(
+      `INSERT INTO email_verifications (user_id, token, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '24 hours')`,
+      [newUser.user_id, verificationToken]
+    )
+
+
+    await sendEmailVerificationEmail(newUser.user_id, verificationToken)
+
     res.status(201).json({
-      message: "Successful registration.",
+      message: "Successful registration. Please verify your email.",
       user: result.rows[0],
     });
   } catch (error) {
@@ -128,8 +144,19 @@ const signIn = async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000,
     });
 
+    //First Login
+    let redirectTo = "/home";
+    if (user.is_first_login) {
+      await client.query(
+        `UPDATE users SET is_first_login = false WHERE user_id = $1`,
+        [user.user_id]
+      );
+      redirectTo = "/register-smtp";
+    }
+
     res.status(200).json({
       message: "Login successful",
+      redirectTo,
       user: {
         email: user.rows[0].email,
       },

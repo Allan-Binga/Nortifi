@@ -43,6 +43,8 @@ const sendEmail = async (req, res) => {
       smtpConfigId,
       saveAsDraft = false,
     } = req.body;
+    console.log(subject)
+    console.log(body)
 
     if (!subject || !body) {
       return res

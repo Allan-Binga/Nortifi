@@ -8,6 +8,9 @@ const contactRoute = require("./routes/contacts");
 const emailsRoute = require("./routes/emails");
 const smtpRoute = require("./routes/smtp")
 const dashboardRoute = require("./routes/dashboard")
+const verificationRoute = require("./routes/verification")
+const passwordRoute = require("./routes/password")
+const websiteRoute = require("./routes/websites")
 const { scheduleCampaigns } = require("./config/cronScheduler");
 scheduleCampaigns();
 
@@ -45,10 +48,13 @@ app.use(cookieParser());
 
 //ROutes
 app.use("/mail-marketing-system/v1/auth", authRoute);
+app.use("/mail-marketing-system/v1/verification", verificationRoute)
 app.use("/mail-marketing-system/v1/contacts", contactRoute);
 app.use("/mail-marketing-system/v1/emails", emailsRoute);
 app.use("/mail-marketing-system/v1/smtp", smtpRoute)
 app.use("/mail-marketing-system/v1/dashboard", dashboardRoute)
+app.use("/mail-marketing-system/v1/password", passwordRoute)
+app.use("/mail-marketing-system/v1/websites", websiteRoute)
 
 //Serve Static Files
 if (process.env.NODE_ENV === "production") {
