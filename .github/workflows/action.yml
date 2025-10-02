@@ -35,7 +35,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git push https://heroku:$HEROKU_API_KEY@git.heroku.com/${{ secrets.HEROKU_APP_NAME }}.git HEAD:master --force
 
-      - name: Notify Slack
+      - name: Notify Nortifi Channel
         run: |
           curl -X POST -H 'Content-type: application/json' \
           --data "{\"text\":\"Deployment successful: *${{ github.event.head_commit.message }}*\"}" \
