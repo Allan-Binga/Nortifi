@@ -37,6 +37,7 @@ jobs:
 
       - name: Notify Slack
         uses: slackapi/slack-github-action@v1.24.0
+        with:
         payload: |
             {
               "text": "Deployment successful: *${{ github.event.head_commit.message }}*"
