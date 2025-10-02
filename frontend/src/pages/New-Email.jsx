@@ -435,8 +435,8 @@ function NewEmail() {
           value={selectedServer}
           onChange={(e) => setSelectedServer(e.target.value)}
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-             focus:outline-none focus:ring-2 focus:ring-teal-500 
-             focus:border-transparent transition duration-200 bg-white"
+           focus:outline-none focus:ring-2 focus:ring-[#061338] 
+           focus:border-transparent transition duration-200 bg-white"
         >
           {emailServers.length > 0 ? (
             emailServers.map((server) => (
@@ -461,8 +461,8 @@ function NewEmail() {
           onChange={(e) => handleInputChange("fromName", e.target.value)}
           placeholder="Pioneer Writers TEAS Dept."
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                   focus:outline-none focus:ring-2 focus:ring-teal-500 
-                   focus:border-transparent transition duration-200"
+                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
+                 focus:border-transparent transition duration-200"
         />
       </div>
 
@@ -477,8 +477,8 @@ function NewEmail() {
           onChange={(e) => handleInputChange("replyToEmail", e.target.value)}
           placeholder="orders@nortifi.com"
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                   focus:outline-none focus:ring-2 focus:ring-teal-500 
-                   focus:border-transparent transition duration-200"
+                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
+                 focus:border-transparent transition duration-200"
         />
       </div>
 
@@ -496,8 +496,8 @@ function NewEmail() {
           onChange={(e) => handleInputChange("ccEmails", e.target.value)}
           placeholder="support@nortifi.com, info@nortifi.com"
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                   focus:outline-none focus:ring-2 focus:ring-teal-500 
-                   focus:border-transparent transition duration-200"
+                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
+                 focus:border-transparent transition duration-200"
         />
       </div>
 
@@ -515,38 +515,41 @@ function NewEmail() {
           onChange={(e) => handleInputChange("bccEmails", e.target.value)}
           placeholder="admin@nortifi.com, backup@nortifi.com"
           className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                   focus:outline-none focus:ring-2 focus:ring-teal-500 
-                   focus:border-transparent transition duration-200"
+                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
+                 focus:border-transparent transition duration-200"
         />
       </div>
 
       {/* Navigation Buttons */}
       <div className="flex justify-between">
+        {/* Previous = Cancel-style */}
         <button
           onClick={handlePrevious}
-          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
-                   bg-gradient-to-r from-slate-500 to-slate-600 
-                   text-white text-base flex items-center gap-2
-                   hover:from-slate-600 hover:to-slate-700 
-                   transition duration-200"
+          className="px-8 py-3 cursor-pointer rounded-md 
+             bg-white text-[#061338] border border-[#061338] 
+             text-base flex items-center gap-2
+             hover:bg-slate-50 transition duration-200"
         >
           <ArrowLeft className="w-5 h-5" />
           Previous
         </button>
+
+        {/* Next = Primary-style */}
         <button
           onClick={handleNext}
-          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
-                   bg-gradient-to-r from-teal-500 to-teal-600 
-                   text-white text-base flex items-center gap-2
-                   hover:from-teal-600 hover:to-teal-700 
-                   transition duration-200"
+          className="px-8 py-3 cursor-pointer rounded-md 
+             bg-[#061338] text-white 
+             text-base flex items-center gap-2
+             hover:bg-[#0a1f5c] transition duration-200"
         >
           Next
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
+
     </div>
   );
+
 
   const renderEmailTab = () => (
     <div className="space-y-6">
@@ -1139,9 +1142,9 @@ function NewEmail() {
       {/*Sidebar*/}
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <Label/>
+        <Label />
         <div className="flex-1 overflow-y-auto">
-          <div className="relative z-10 container mx-auto px-4 py-8 pt-30 sm:px-6 lg:px-8">
+          <div className="relative z-10 container mx-auto px-4 py-8 pt-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                 {/* Header */}

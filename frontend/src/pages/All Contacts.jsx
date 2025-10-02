@@ -194,10 +194,10 @@ function Contacts() {
                                 </div>
                             ) : (
                                 <div className="max-h-[500px] overflow-y-auto">
-                                    <table className="w-full text-sm text-slate-700 min-w-[1100px]"> {/* text-sm → text-xs */}
+                                    <table className="w-full text-sm text-slate-700 min-w-[1100px]"> 
                                         <thead>
                                             <tr className="bg-slate-50 sticky top-0">
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">First Name</th> {/* px-6 py-4 → px-4 py-2 */}
+                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">First Name</th> 
                                                 <th className="px-4 py-2 text-left font-semibold text-slate-700">Last Name</th>
                                                 <th className="px-4 py-2 text-left font-semibold text-slate-700">Email</th>
                                                 <th className="px-4 py-2 text-left font-semibold text-slate-700">Phone</th>
@@ -252,14 +252,14 @@ function Contacts() {
                                                     <td className="px-4 py-2">{contact.state || "-"}</td>
                                                     <td className="px-4 py-2">{formatDate(contact.created_at)}</td>
                                                     <td className="px-4 py-2">
-                                                        <div className="flex space-x-2"> {/* space-x-3 → space-x-2 */}
+                                                        <div className="flex space-x-2"> 
                                                             <button
                                                                 onClick={() => handleEdit(contact)}
                                                                 className="cursor-pointer text-teal-600 hover:text-teal-800 p-1 rounded hover:bg-teal-50 transition duration-200"
                                                                 title="Edit contact"
                                                                 disabled={isSubmitting}
                                                             >
-                                                                <Edit2 className="w-4 h-4" /> {/* w-5 h-5 → w-4 h-4 */}
+                                                                <Edit2 className="w-4 h-4" /> 
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDelete(contact.contact_id)}
@@ -267,7 +267,7 @@ function Contacts() {
                                                                 title="Delete contact"
                                                                 disabled={isSubmitting}
                                                             >
-                                                                <Trash2 className="w-4 h-4" /> {/* w-5 h-5 → w-4 h-4 */}
+                                                                <Trash2 className="w-4 h-4" /> 
                                                             </button>
                                                         </div>
                                                     </td>

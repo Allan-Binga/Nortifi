@@ -222,7 +222,7 @@ function Contact() {
       <div className="flex-1 flex flex-col">
         <Label/>
         <div className="flex-1 overflow-y-auto">
-          <div className="relative z-10 container mx-auto px-4 py-8 pt-30 sm:px-6 lg:px-8">
+          <div className="relative z-10 container mx-auto px-4 py-8 pt-4 sm:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto">
               <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                 {/* Header */}
