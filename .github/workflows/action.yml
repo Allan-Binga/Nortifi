@@ -36,13 +36,9 @@ jobs:
           git push https://heroku:$HEROKU_API_KEY@git.heroku.com/${{ secrets.HEROKU_APP_NAME }}.git HEAD:master --force
 
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-        payload: |
-            {
-              "text": "Deployment successful: *${{ github.event.head_commit.message }}*"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\"Deployment successful: *${{ github.event.head_commit.message }}*\"}" \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
     
 
