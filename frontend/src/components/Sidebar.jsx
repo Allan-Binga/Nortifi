@@ -81,7 +81,7 @@ function Sidebar() {
     return (
         <aside className="w-22 bg-[#061338] h-screen flex flex-col sticky top-0 shadow-lg relative z-50">
             {/* Logo/Brand Section */}
-            <div className="h-16 flex items-center justify-center border-b border-slate-700">
+            <div className="h-20 flex items-center justify-center border-b border-slate-700">
                 <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-xl">N</span>
                 </div>

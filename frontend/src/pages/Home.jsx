@@ -39,7 +39,7 @@ function Home() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-blue-50">
       {/* Sidebar */}
       <Sidebar />
 
@@ -50,8 +50,8 @@ function Home() {
           {/* Hero Section */}
           <section className="py-8">
             <div className="max-w-6xl mx-auto px-6">
-              <div className="mb-6">
-                <h1 className="text-3xl md:text-4xl font-light mb-3">
+              <div className="mb-6 mt-20">
+                <h1 className="text-10xl md:text-4xl font-light mb-3">
                   Welcome to Your{" "}
                   <span className="font-bold bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
                     Nortifi Dashboard
@@ -66,13 +66,13 @@ function Home() {
               {/* Quick Actions */}
               <div className="flex flex-wrap gap-3 mb-8">
                 <Link to="/sites">
-                  <button className="bg-gray-900 text-stone-50 px-5 py-2 rounded-md hover:bg-gray-800 transition-all flex items-center space-x-2 cursor-pointer text-sm">
+                  <button className="bg-blue-600 font-bold text-stone-50 px-6 py-5 rounded-md hover:bg-blue-700 transition-all flex items-center space-x-2 cursor-pointer text-md">
                     <Globe className="w-4 h-4" />
                     <span>Manage Websites</span>
                   </button>
                 </Link>
                 <Link to="/register-smtp">
-                  <button className="bg-white text-gray-900 px-5 py-2 rounded-md border border-gray-200 hover:bg-gray-100 transition-all flex items-center space-x-2 cursor-pointer text-sm">
+                  <button className="bg-white font-bold text-blue-500 px-6 py-5 rounded-md border border-blue-400 hover:bg-blue-200 transition-all flex items-center space-x-2 cursor-pointer text-md">
                     <Server className="w-4 h-4" />
                     <span>Register SMTP</span>
                   </button>
@@ -82,7 +82,7 @@ function Home() {
           </section>
 
           {/* Dashboard Stats */}
-          <section className="py-8 bg-white">
+          <section className="py-8">
             <div className="max-w-6xl mx-auto px-6">
               {isLoading ? (
                 <div className="text-center text-gray-600">Loading...</div>
@@ -93,12 +93,12 @@ function Home() {
                   {/* Campaigns */}
                   <Link
                     to="/emails"
-                    className="group bg-gray-50 p-5 rounded-lg border border-gray-200 transition-all block"
+                    className="group bg-gray-50 p-5 rounded-lg border border-solid border-blue-200 transition-all block"
                   >
                     <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-indigo-200 transition-colors">
                       <Send className="w-5 h-5 text-indigo-600" />
                     </div>
-                    <h3 className="text-2xl font-light text-gray-900 mb-1">
+                    <h3 className="text-3xl font-bold text-gray-900 mb-1">
                       {dashboardData.campaigns.length}
                     </h3>
                     <p className="text-gray-600 text-sm">Campaigns</p>
@@ -107,12 +107,12 @@ function Home() {
                   {/* Contacts */}
                   <Link
                     to="/contacts"
-                    className="group bg-gray-50 p-5 rounded-lg border border-gray-200 transition-all block"
+                    className="group bg-gray-50 p-5 rounded-lg border border-solid border-blue-200 transition-all block"
                   >
                     <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors">
                       <Users className="w-5 h-5 text-purple-600" />
                     </div>
-                    <h3 className="text-2xl font-light text-gray-900 mb-1">
+                    <h3 className="text-3xl font-bold text-gray-900 mb-1">
                       {dashboardData.contacts.length}
                     </h3>
                     <p className="text-gray-600 text-sm">Contacts</p>
@@ -121,12 +121,12 @@ function Home() {
                   {/* SMTP Servers */}
                   <Link
                     to="/smtp-configuration"
-                    className="group bg-gray-50 p-5 rounded-lg border border-gray-200 transition-all block"
+                    className="group bg-gray-50 p-5 rounded-lg border border-solid border-blue-200 transition-all block"
                   >
                     <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-green-200 transition-colors">
                       <Server className="w-5 h-5 text-green-600" />
                     </div>
-                    <h3 className="text-2xl font-light text-gray-900 mb-1">
+                    <h3 className="text-3xl font-bold text-gray-900 mb-1">
                       {dashboardData.smtpConfigs.length}
                     </h3>
                     <p className="text-gray-600 text-sm">SMTP Servers</p>

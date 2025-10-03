@@ -7,6 +7,7 @@ import { notify } from "../utils/toast";
 import { Plus, X, Loader2, Upload } from "lucide-react";
 import Spinner from "../components/Spinner";
 import { useNavigate } from "react-router-dom";
+import Papa from "papaparse"
 
 function Contact() {
   const navigate = useNavigate()
@@ -28,9 +29,19 @@ function Contact() {
   const [errors, setErrors] = useState({});
   const [csvFile, setCSVFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [csvPreview, setCsvPreview] = useState([]);
+  const [mapping, setMapping] = useState({});
 
   const handleFileChange = (e) => {
-    setCSVFile(e.target.files[0]);
+    const file = e.target.files[0];
+    setCSVFile(file);
+
+    Papa.parse(file, {
+      complete: (results) => {
+        // preview first 5 rows
+        setCsvPreview(results.data.slice(0, 5));
+      },
+    });
   };
 
   const countryCodes = [
@@ -163,6 +174,7 @@ function Contact() {
 
     const formData = new FormData();
     formData.append("file", csvFile);
+    formData.append("mapping", JSON.stringify(mapping));
 
     try {
       setIsUploading(true);
@@ -220,7 +232,7 @@ function Contact() {
       {/*Sidebar*/}
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <Label/>
+        <Label />
         <div className="flex-1 overflow-y-auto">
           <div className="relative z-10 container mx-auto px-4 py-8 pt-4 sm:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto">
@@ -482,6 +494,31 @@ function Contact() {
 
 
                     {/* CSV Preview and Buttons */}
+                    {csvPreview.length > 0 && (
+                      <div className="space-y-4 mt-4">
+                        <h3 className="font-semibold">Map your columns</h3>
+                        {csvPreview[0].map((_, colIndex) => (
+                          <div key={colIndex} className="flex items-center gap-4">
+                            <span className="text-sm text-gray-600">Column {colIndex + 1}</span>
+                            <select
+                              value={mapping[colIndex] || ""}
+                              onChange={(e) =>
+                                setMapping({ ...mapping, [colIndex]: e.target.value })
+                              }
+                              className="border border-gray-200 rounded px-3 py-2"
+                            >
+                              <option value="">-- Select field --</option>
+                              <option value="email">Email</option>
+                              <option value="name">Name</option>
+                              <option value="phone_number">Phone Number</option>
+                              <option value="tag">Tag</option>
+                              <option value="website">Website</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="space-y-4">
                       {csvFile && (
                         <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
