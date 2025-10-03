@@ -98,7 +98,7 @@ function EmailStatus() {
                                                         <td className="px-3 py-2">
                                                             <a
                                                                 href={`mailto:${email.from_email}`}
-                                                                className="text-teal-600 hover:text-teal-800 hover:underline"
+                                                                className="text-blue-600 hover:underline"
                                                                 onClick={(e) => e.stopPropagation()} // prevent row click
                                                             >
                                                                 {email.from_email}

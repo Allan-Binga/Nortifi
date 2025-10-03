@@ -118,22 +118,8 @@ function RegisterSMTP() {
       <div className="flex-1 flex flex-col">
         <Label />
         <div className="flex-1 overflow-y-auto">
-          <section className="pb-20 px-6 pt-10">
+          <section className="pb-20 px-6 pt-20">
             <div className="max-w-md mx-auto">
-              {/* Header */}
-              <div className="text-center mb-10">
-                <div className="flex justify-center mb-6">
-                  <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center">
-                    <Wrench className="w-8 h-8 text-indigo-600" />
-                  </div>
-                </div>
-                <h1 className="text-4xl font-light mb-2">Register SMTP Server</h1>
-                <p className="text-lg text-gray-600 leading-relaxed">
-                  {formStep === 1
-                    ? "Step 1: Configure your SMTP settings"
-                    : "Step 2: Verify by sending a test email"}
-                </p>
-              </div>
 
               {/* Wizard Form */}
               <form onSubmit={handleRegisterSMTP} className="space-y-6">
@@ -141,7 +127,7 @@ function RegisterSMTP() {
                   <div className="space-y-6">
                     {/* Name */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
                         Configuration Name
                       </label>
                       <input
@@ -150,13 +136,13 @@ function RegisterSMTP() {
                         value={smtpData.name}
                         onChange={handleInputChange}
                         placeholder="e.g., My Gmail SMTP"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-200 focus:outline-none focus:ring-2 focus:ring-gray-200"
                       />
                     </div>
 
                     {/*SMTP Host*/}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
                         SMTP Host
                       </label>
                       <input
@@ -165,13 +151,13 @@ function RegisterSMTP() {
                         value={smtpData.host}
                         onChange={handleInputChange}
                         placeholder="e.g., smtp.gmail.com"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
                       />
                     </div>
 
                     {/* SMTP User */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
                         SMTP Username
                       </label>
                       <input
@@ -181,13 +167,13 @@ function RegisterSMTP() {
                         onChange={handleInputChange}
                         placeholder="e.g., user@gmail.com"
                         required
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
                       />
                     </div>
 
                     {/* SMTP Password */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
                         SMTP Password
                       </label>
                       <div className="relative">
@@ -198,7 +184,7 @@ function RegisterSMTP() {
                           onChange={handleInputChange}
                           placeholder="Enter your SMTP password"
                           required
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                          className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
                         />
                         <button
                           type="button"
@@ -216,14 +202,14 @@ function RegisterSMTP() {
 
                     {/* From Address (read-only) */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
                         From Address
                       </label>
                       <input
                         type="email"
                         value={smtpData.smtpUser}
                         readOnly
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none"
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         Your from address is your SMTP user.
@@ -244,17 +230,17 @@ function RegisterSMTP() {
 
                     {/* Advanced Settings */}
                     {showAdvanced && (
-                      <div className="space-y-4 p-4 rounded-lg bg-gray-50">
+                      <div className="space-y-4 p-4 rounded-sm bg-gray-50">
                         {/* Port Dropdown */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-bold text-gray-700 mb-2">
                             SMTP Port
                           </label>
                           <div className="relative">
                             <button
                               type="button"
                               onClick={() => setIsOpen(!isOpen)}
-                              className="w-full flex justify-between items-center px-4 py-3 rounded-xl bg-white border border-gray-300 shadow-sm text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-slate-400 hover:slate-amber-300"
+                              className="w-full flex justify-between items-center px-4 py-3 rounded-sm bg-white border border-blue-300 text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-slate-400 hover:slate-amber-300"
                             >
                               {smtpData.port
                                 ? PORT_OPTIONS.find(
@@ -298,7 +284,7 @@ function RegisterSMTP() {
                                 secure: e.target.checked,
                               }))
                             }
-                            className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                            className="h-4 w-4 text-indigo-600 border-blue-300 rounded"
                           />
                           <label className="text-sm text-gray-700">
                             Use Secure (SSL/TLS)
@@ -311,7 +297,7 @@ function RegisterSMTP() {
                     <button
                       type="button"
                       onClick={() => setFormStep(2)}
-                      className="w-full bg-slate-800 text-white px-6 py-3 roundeContinue to d-md hover:bg-slate-900 flex justify-center items-center cursor-pointer space-x-2"
+                      className="w-full bg-blue-600 font-bold text-white px-6 py-3 rounded-sm Continue to d-md hover:bg-blue-700 flex justify-center items-center cursor-pointer space-x-2"
                     >
                       <span>Continue to Verification</span>
                       <ArrowRight className="w-4 h-4" />
@@ -323,7 +309,7 @@ function RegisterSMTP() {
                   <div className="space-y-6">
                     {/* Test Email */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
                         Test Email
                       </label>
                       <input
@@ -333,7 +319,7 @@ function RegisterSMTP() {
                         onChange={handleInputChange}
                         placeholder="Enter a recipient to verify"
                         required
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
                       />
                     </div>
 

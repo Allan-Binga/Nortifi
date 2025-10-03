@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Mail, LogOut, Mails, Users, Server, Home, Eye, Plus, Globe, Send, PencilLine } from "lucide-react";
+import { Mail, LogOut, Mails, Users, Server, Home, Eye, Plus, Globe, Send, PencilLine, X } from "lucide-react";
 import { fetchSMTPs } from "../utils/smtp";
 import { backend } from "../server";
 import axios from "axios";
 import { notify } from "../utils/toast";
 
 function Sidebar() {
+
     const [smtps, setSmtps] = useState([]);
     const [activeDropdown, setActiveDropdown] = useState(null);
     const navigate = useNavigate();
-    const location = useLocation(); // <--- current path
+    const location = useLocation();
 
     const navItems = [
         { name: "Home", path: "/home", icon: <Home className="w-5 h-5 mr-2" /> },
@@ -78,6 +79,7 @@ function Sidebar() {
         }
     };
 
+
     return (
         <aside className="w-22 bg-[#061338] h-screen flex flex-col sticky top-0 shadow-lg relative z-50">
             {/* Logo/Brand Section */}
@@ -132,8 +134,7 @@ function Sidebar() {
 
                                                     {smtps.map((smtp, index) => (
                                                         <Link
-                                                            key={smtp.config_id}
-                                                            to={`/smtp/servers/${smtp.config_id}`}
+                                                            onClick={handleOpenSMTP}
                                                             className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-500/80 rounded transition"
                                                         >
                                                             <div className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">
@@ -186,7 +187,8 @@ function Sidebar() {
                 <span className="text-xs">Logout</span>
             </button>
         </aside>
-    );
+
+    )
 }
 
 export default Sidebar;

@@ -45,7 +45,7 @@ function Label() {
     const pageName = getPageName();
 
     return (
-        <div className="h-20 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        <div className="h-20 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-10">
             <h1 className="text-xl font-semibold text-gray-800">
                 <div className="px-4">
                     <span className="font-bold bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent mr-2">
