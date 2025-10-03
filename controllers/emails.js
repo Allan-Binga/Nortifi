@@ -632,37 +632,71 @@ const getCampaignsByStatus = async (req, res) => {
   const userId = req.userId
   const { status } = req.params
   try {
-    const result = await client.query()
-  } catch (error) {
+    const result = await client.query(
+      `SELECT * FROM campaigns
+       WHERE user_id = $1 AND status = $2
+       ORDER BY created_at DESC`,
+      [userId, status]
+    )
 
+    res.status(200).json(result.rows)
+  } catch (error) {
+    console.error("Error fetching campaigns:", error)
+    res.status(500).json({ message: "Server error" })
   }
 }
 
-// Get Single Campaign
+// Get Single Campaign with Recipients
 const getSingleCampaign = async (req, res) => {
   const userId = req.userId;
   const { campaignId } = req.params;
 
   try {
-    const query = `
-      SELECT * FROM campaigns 
+    // Fetch the campaign itself
+    const campaignQuery = `
+      SELECT * 
+      FROM campaigns 
       WHERE campaign_id = $1 AND user_id = $2
       LIMIT 1
     `;
-    const values = [campaignId, userId];
+    const campaignValues = [campaignId, userId];
+    const campaignResult = await client.query(campaignQuery, campaignValues);
 
-    const result = await client.query(query, values);
-
-    if (result.rows.length === 0) {
+    if (campaignResult.rows.length === 0) {
       return res.status(404).json({ message: "Campaign not found" });
     }
 
-    res.status(200).json(result.rows[0]);
+    const campaign = campaignResult.rows[0];
+
+    // Fetch recipients with their contact info
+    const recipientsQuery = `
+      SELECT cr.id AS recipient_id,
+             cr.status AS recipient_status,
+             cr.sent_at,
+             cr.filter_reason,
+             c.contact_id,
+             c.first_name,
+             c.last_name,
+             c.email,
+             c.phone_number,
+             c.unsubscribed
+      FROM campaign_recipients cr
+      JOIN contacts c ON cr.contact_id = c.contact_id
+      WHERE cr.campaign_id = $1
+      ORDER BY cr.sent_at DESC
+    `;
+    const recipientsResult = await client.query(recipientsQuery, [campaignId]);
+
+    // Attach recipients to campaign object
+    campaign.recipients = recipientsResult.rows;
+
+    res.status(200).json(campaign);
   } catch (error) {
     console.error("Error fetching campaign:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 //Get Emails
 const getEmails = async (req, res) => {

@@ -15,6 +15,8 @@ import ResetPassword from "./pages/ResetPassword";
 import Sites from "./pages/Sites";
 import Contacts from "./pages/All Contacts";
 import SMTPDetails from "./pages/SMTPServerDetails";
+import EmailStatus from "./pages/EmailsStatus";
+import EmailDetails from "./pages/EmailDetails";
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/new-email" element={<NewEmail />} />
         <Route path="/emails" element={<Emails />} />
+        <Route path="/emails/:status" element={<EmailStatus />} />
+        <Route path="/emails/campaign/:campaignId" element={<EmailDetails />} />
         <Route path="/smtp-configuration" element={<Configurations />} />
         <Route path="/smtp/servers/:smtpId" element={<SMTPDetails />} />
         <Route path="/sites" element={<Sites />} />

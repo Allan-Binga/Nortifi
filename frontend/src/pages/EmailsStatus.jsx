@@ -1,17 +1,141 @@
-import Sidebar from "../components/Sidebar"
-import Spinner from "../components/Spinner"
-import { useSearchParams } from "react-router-dom"
-import axios from "axios"
-
+import Sidebar from "../components/Sidebar";
+import Label from "../components/Label";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { backend } from "../server";
+import { useEffect, useState } from "react";
+import { Loader2, Mail } from "lucide-react";
 
 function EmailStatus() {
+    const { status } = useParams();
+    const [emails, setEmails] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchEmails = async () => {
+            try {
+                setLoading(true);
+                const res = await axios.get(`${backend}/emails/all-campaigns/${status}`, {
+                    withCredentials: true,
+                });
+                setEmails(res.data);
+            } catch (error) {
+                console.error("Error fetching emails:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchEmails();
+    }, [status]);
+
     return (
-        <div>
-            <p>
-                Emails
-            </p>
+        <div className="flex h-screen bg-gray-100">
+            {/* Sidebar */}
+            <Sidebar />
+
+            <div className="flex-1 flex flex-col">
+                <Label />
+
+                <div className="flex-1 overflow-y-auto p-6 transition-all duration-300">
+                    {/* Header */}
+                    <div className="text-center mb-10 mt-6">
+                        <div className="flex justify-center mb-6">
+                            <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center">
+                                <Mail className="w-8 h-8 text-teal-600" />
+                            </div>
+                        </div>
+                        <h1 className="text-4xl font-light mb-2 capitalize">
+                            {status} Emails
+                        </h1>
+                        <p className="text-lg text-gray-600 leading-relaxed">
+                            View and manage your {status} campaigns
+                        </p>
+                    </div>
+
+                    {/* Emails Table */}
+                    <div className="max-w-6xl mx-auto px-6">
+                        <div className="bg-white rounded-md border border-gray-200">
+                            <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-6 py-3 rounded-t-lg">
+                                <h2 className="text-lg font-bold text-white">
+                                    {status.charAt(0).toUpperCase() + status.slice(1)} Emails (
+                                    {emails.length})
+                                </h2>
+                            </div>
+
+                            <div className="p-4">
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin text-teal-600 mr-2" />
+                                        <p className="text-slate-500 text-sm">Loading emails...</p>
+                                    </div>
+                                ) : emails.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-slate-600 text-sm mb-2">
+                                            No {status} emails found.
+                                        </p>
+                                        <p className="text-slate-500 text-xs mb-4">
+                                            Try creating a new campaign.
+                                        </p>
+
+                                        <button
+                                            onClick={() => navigate("/new-email")}
+                                            className="px-5 py-2 rounded-md bg-[#061338] text-white text-sm font-medium cursor-pointer hover:bg-[#0a1f57] transition"
+                                        >
+                                            + Create New Campaign
+                                        </button>
+                                    </div>
+
+                                ) : (
+                                    <div className="max-h-[500px] overflow-y-auto">
+                                        <table className="w-full text-sm text-slate-700 min-w-[500px]">
+                                            <thead>
+                                                <tr className="bg-slate-50 sticky top-0">
+                                                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Label</th>
+                                                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Subject</th>
+                                                    <th className="px-3 py-2 text-left font-semibold text-slate-700">From</th>
+                                                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
+                                                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Created</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {emails.map((email) => (
+                                                    <tr
+                                                        key={email.campaign_id}
+                                                        onClick={() =>
+                                                            navigate(`/emails/campaign/${email.campaign_id}`)
+                                                        }
+                                                        className="border-t border-slate-200 hover:bg-slate-50 transition duration-150 cursor-pointer"
+                                                    >
+                                                        <td className="px-3 py-2">{email.label}</td>
+                                                        <td className="px-3 py-2">{email.subject}</td>
+                                                        <td className="px-3 py-2">
+                                                            <a
+                                                                href={`mailto:${email.from_email}`}
+                                                                className="text-teal-600 hover:text-teal-800 hover:underline"
+                                                                onClick={(e) => e.stopPropagation()} // prevent row click
+                                                            >
+                                                                {email.from_email}
+                                                            </a>
+                                                        </td>
+                                                        <td className="px-3 py-2 capitalize">{email.status}</td>
+                                                        <td className="px-3 py-2">
+                                                            {new Date(email.created_at).toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
-    )
+    );
 }
 
-export default EmailStatus
+export default EmailStatus;

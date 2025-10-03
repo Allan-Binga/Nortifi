@@ -170,116 +170,119 @@ function Contacts() {
                     </div>
 
                     {/* Contacts Table */}
-                    <div className="bg-white rounded-lg shadow-lg">
-                        <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-8 py-6 rounded-t-lg">
-                            <h2 className="text-xl font-bold text-white">
-                                All Contacts ({contacts.length})
-                            </h2>
-                        </div>
+                    <div className="max-w-8xl mx-auto px-8">
+                        <div className="bg-white rounded-lg shadow-lg">
+                            <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-8 py-6 rounded-t-lg">
+                                <h2 className="text-xl font-bold text-white">
+                                    All Contacts ({contacts.length})
+                                </h2>
+                            </div>
 
-                        <div className="p-8">
-                            {loading ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="w-6 h-6 animate-spin text-teal-600 mr-2" />
-                                    <p className="text-slate-500 text-sm">Loading contacts...</p>
-                                </div>
-                            ) : contacts.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <p className="text-slate-600 text-sm mb-2">
-                                        No contacts found.
-                                    </p>
-                                    <p className="text-slate-500 text-xs">
-                                        Create your first contact using the form above.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="max-h-[500px] overflow-y-auto">
-                                    <table className="w-full text-sm text-slate-700 min-w-[1100px]"> 
-                                        <thead>
-                                            <tr className="bg-slate-50 sticky top-0">
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">First Name</th> 
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Last Name</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Email</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Phone</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Website</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Gender</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Address</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Country</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">State</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Created</th>
-                                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {contacts.map((contact) => (
-                                                <tr
-                                                    key={contact.contact_id}
-                                                    className="border-t border-slate-200 hover:bg-slate-50 transition duration-200"
-                                                >
-                                                    <td className="px-4 py-2">{contact.first_name}</td>
-                                                    <td className="px-4 py-2">{contact.last_name}</td>
-                                                    <td className="px-4 py-2">
-                                                        <a href={`mailto:${contact.email}`} className="text-teal-600 hover:text-teal-800 hover:underline">
-                                                            {contact.email}
-                                                        </a>
-                                                    </td>
-                                                    <td className="px-4 py-2">
-                                                        {contact.phone_number ? (
-                                                            <a href={`tel:${contact.phone_number}`} className="text-teal-600 hover:text-teal-800 hover:underline">
-                                                                {contact.phone_number}
-                                                            </a>
-                                                        ) : (
-                                                            <span className="text-slate-400">-</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-2">
-                                                        {contact.website ? (
-                                                            <a
-                                                                href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-teal-600 hover:text-teal-800 hover:underline"
-                                                            >
-                                                                {contact.website}
-                                                            </a>
-                                                        ) : (
-                                                            <span className="text-slate-400">-</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-2">{contact.gender || "-"}</td>
-                                                    <td className="px-4 py-2">{contact.address || "-"}</td>
-                                                    <td className="px-4 py-2">{contact.country || "-"}</td>
-                                                    <td className="px-4 py-2">{contact.state || "-"}</td>
-                                                    <td className="px-4 py-2">{formatDate(contact.created_at)}</td>
-                                                    <td className="px-4 py-2">
-                                                        <div className="flex space-x-2"> 
-                                                            <button
-                                                                onClick={() => handleEdit(contact)}
-                                                                className="cursor-pointer text-teal-600 hover:text-teal-800 p-1 rounded hover:bg-teal-50 transition duration-200"
-                                                                title="Edit contact"
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                <Edit2 className="w-4 h-4" /> 
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDelete(contact.contact_id)}
-                                                                className="cursor-pointer text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition duration-200"
-                                                                title="Delete contact"
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                <Trash2 className="w-4 h-4" /> 
-                                                            </button>
-                                                        </div>
-                                                    </td>
+                            <div className="p-8">
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin text-teal-600 mr-2" />
+                                        <p className="text-slate-500 text-sm">Loading contacts...</p>
+                                    </div>
+                                ) : contacts.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-slate-600 text-sm mb-2">
+                                            No contacts found.
+                                        </p>
+                                        <p className="text-slate-500 text-xs">
+                                            Create your first contact using the form above.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="max-h-[500px] overflow-y-auto">
+                                        <table className="w-full text-sm text-slate-700 min-w-[1100px]">
+                                            <thead>
+                                                <tr className="bg-slate-50 sticky top-0">
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">First Name</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Last Name</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Email</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Phone</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Website</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Gender</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Address</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Country</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">State</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Created</th>
+                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Actions</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                                {contacts.map((contact) => (
+                                                    <tr
+                                                        key={contact.contact_id}
+                                                        className="border-t border-slate-200 hover:bg-slate-50 transition duration-200"
+                                                    >
+                                                        <td className="px-4 py-2">{contact.first_name}</td>
+                                                        <td className="px-4 py-2">{contact.last_name}</td>
+                                                        <td className="px-4 py-2">
+                                                            <a href={`mailto:${contact.email}`} className="text-teal-600 hover:text-teal-800 hover:underline">
+                                                                {contact.email}
+                                                            </a>
+                                                        </td>
+                                                        <td className="px-4 py-2">
+                                                            {contact.phone_number ? (
+                                                                <a href={`tel:${contact.phone_number}`} className="text-teal-600 hover:text-teal-800 hover:underline">
+                                                                    {contact.phone_number}
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-slate-400">-</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-2">
+                                                            {contact.website ? (
+                                                                <a
+                                                                    href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-teal-600 hover:text-teal-800 hover:underline"
+                                                                >
+                                                                    {contact.website}
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-slate-400">-</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-2">{contact.gender || "-"}</td>
+                                                        <td className="px-4 py-2">{contact.address || "-"}</td>
+                                                        <td className="px-4 py-2">{contact.country || "-"}</td>
+                                                        <td className="px-4 py-2">{contact.state || "-"}</td>
+                                                        <td className="px-4 py-2">{formatDate(contact.created_at)}</td>
+                                                        <td className="px-4 py-2">
+                                                            <div className="flex space-x-2">
+                                                                <button
+                                                                    onClick={() => handleEdit(contact)}
+                                                                    className="cursor-pointer text-teal-600 hover:text-teal-800 p-1 rounded hover:bg-teal-50 transition duration-200"
+                                                                    title="Edit contact"
+                                                                    disabled={isSubmitting}
+                                                                >
+                                                                    <Edit2 className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(contact.contact_id)}
+                                                                    className="cursor-pointer text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition duration-200"
+                                                                    title="Delete contact"
+                                                                    disabled={isSubmitting}
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
 
-                                </div>
-                            )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
+
                 </div>
 
                 {/* Modal for Editing */}
