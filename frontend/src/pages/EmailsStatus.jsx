@@ -30,34 +30,20 @@ function EmailStatus() {
     }, [status]);
 
     return (
-        <div className="flex h-screen bg-gray-100">
+        <div className="flex h-screen bg-blue-50">
             {/* Sidebar */}
             <Sidebar />
 
             <div className="flex-1 flex flex-col">
                 <Label />
 
-                <div className="flex-1 overflow-y-auto p-6 transition-all duration-300">
-                    {/* Header */}
-                    <div className="text-center mb-10 mt-6">
-                        <div className="flex justify-center mb-6">
-                            <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center">
-                                <Mail className="w-8 h-8 text-teal-600" />
-                            </div>
-                        </div>
-                        <h1 className="text-4xl font-light mb-2 capitalize">
-                            {status} Emails
-                        </h1>
-                        <p className="text-lg text-gray-600 leading-relaxed">
-                            View and manage your {status} campaigns
-                        </p>
-                    </div>
+                <div className="flex-1 overflow-y-auto p-6 transition-all duration-300 mt-20">
 
                     {/* Emails Table */}
                     <div className="max-w-6xl mx-auto px-6">
-                        <div className="bg-white rounded-md border border-gray-200">
-                            <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-6 py-3 rounded-t-lg">
-                                <h2 className="text-lg font-bold text-white">
+                        <div className="bg-white rounded-md border border-blue-200">
+                            <div className="bg-blue-100 px-6 py-3 rounded-t-md">
+                                <h2 className="text-lg font-bold text-[#061338]">
                                     {status.charAt(0).toUpperCase() + status.slice(1)} Emails (
                                     {emails.length})
                                 </h2>

@@ -51,13 +51,13 @@ function Home() {
           <section className="py-8">
             <div className="max-w-6xl mx-auto px-6">
               <div className="mb-6 mt-20">
-                <h1 className="text-10xl md:text-4xl font-light mb-3">
+                <h1 className="text-10xl text-baseline md:text-4xl font-bold mb-3">
                   Welcome to Your{" "}
                   <span className="font-bold bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
                     Nortifi Dashboard
                   </span>
                 </h1>
-                <p className="text-lg text-gray-600 max-w-xl leading-snug">
+                <p className="text-gray-600 max-w-xl leading-snug">
                   Manage your campaigns, track performance, and grow your audience
                   with ease.
                 </p>
@@ -66,13 +66,13 @@ function Home() {
               {/* Quick Actions */}
               <div className="flex flex-wrap gap-3 mb-8">
                 <Link to="/sites">
-                  <button className="bg-blue-600 font-bold text-stone-50 px-6 py-4 rounded-md hover:bg-blue-700 transition-all flex items-center space-x-2 cursor-pointer text-md">
+                  <button className="bg-blue-600 font-bold text-stone-50 px-4 py-4 rounded-sm hover:bg-blue-700 transition-all flex items-center space-x-2 cursor-pointer text-md">
                     <Globe className="w-4 h-4" />
                     <span>Manage Websites</span>
                   </button>
                 </Link>
-                <Link to="/register-smtp">
-                  <button className="bg-white font-bold text-blue-500 px-6 py-4 rounded-md border border-blue-400 hover:bg-blue-200 transition-all flex items-center space-x-2 cursor-pointer text-md">
+                <Link to="/new-email">
+                  <button className="bg-white font-bold text-blue-500 px-4 py-4 rounded-sm border border-blue-400 hover:bg-blue-200 transition-all flex items-center space-x-2 cursor-pointer text-md">
                     <Mail className="w-4 h-4" />
                     <span>New Campaign</span>
                   </button>
@@ -180,7 +180,7 @@ function Home() {
                   {dashboardData.campaigns.slice(0, 2).map((c) => (
                     <div
                       key={c.campaign_id}
-                      className="bg-white p-5 rounded-xl border border-gray-200 transition-all"
+                      className="bg-white p-5 rounded-md border border-blue-200 transition-all"
                     >
                       <h3 className="text-md font-semibold mb-1">{c.name}</h3>
                       <p className="text-gray-600 text-sm">

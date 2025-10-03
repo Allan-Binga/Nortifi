@@ -13,6 +13,7 @@ function Label() {
         "/sites": "Manage Websites",
         "/register-smtp": "Register SMTP Server",
         "/emails": "All Emails",
+        "/emails/sent": "Sent Emails"
     };
 
     // Get the current page name, or extract from dynamic routes
@@ -47,12 +48,10 @@ function Label() {
         <div className="h-20 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-10 shadow-sm">
             <h1 className="text-xl font-semibold text-gray-800">
                 <div className="px-4">
-                    <span className="font-bold bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
+                    <span className="font-bold bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent mr-2">
                         Nortifi
 
                     </span>
-
-                    |
                     <span>
                         {pageName}
                     </span>
