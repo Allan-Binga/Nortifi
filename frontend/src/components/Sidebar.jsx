@@ -7,7 +7,6 @@ import axios from "axios";
 import { notify } from "../utils/toast";
 
 function Sidebar() {
-    const [openSMTPConfiguration, setOpenSMTPConfiguration] = (false)
     const [smtps, setSmtps] = useState([]);
     const [activeDropdown, setActiveDropdown] = useState(null);
     const navigate = useNavigate();
