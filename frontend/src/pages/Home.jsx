@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { backend } from "../server";
-import { Send, Users, Plus, ChevronRight, Server, Globe } from "lucide-react";
+import { Send, Users, Plus, ChevronRight, Server, Globe, Mail } from "lucide-react";
 
 function Home() {
   const [dashboardData, setDashboardData] = useState({
@@ -66,15 +66,15 @@ function Home() {
               {/* Quick Actions */}
               <div className="flex flex-wrap gap-3 mb-8">
                 <Link to="/sites">
-                  <button className="bg-blue-600 font-bold text-stone-50 px-6 py-5 rounded-md hover:bg-blue-700 transition-all flex items-center space-x-2 cursor-pointer text-md">
+                  <button className="bg-blue-600 font-bold text-stone-50 px-6 py-4 rounded-md hover:bg-blue-700 transition-all flex items-center space-x-2 cursor-pointer text-md">
                     <Globe className="w-4 h-4" />
                     <span>Manage Websites</span>
                   </button>
                 </Link>
                 <Link to="/register-smtp">
-                  <button className="bg-white font-bold text-blue-500 px-6 py-5 rounded-md border border-blue-400 hover:bg-blue-200 transition-all flex items-center space-x-2 cursor-pointer text-md">
-                    <Server className="w-4 h-4" />
-                    <span>Register SMTP</span>
+                  <button className="bg-white font-bold text-blue-500 px-6 py-4 rounded-md border border-blue-400 hover:bg-blue-200 transition-all flex items-center space-x-2 cursor-pointer text-md">
+                    <Mail className="w-4 h-4" />
+                    <span>New Campaign</span>
                   </button>
                 </Link>
               </div>
@@ -101,7 +101,7 @@ function Home() {
                     <h3 className="text-3xl font-bold text-gray-900 mb-1">
                       {dashboardData.campaigns.length}
                     </h3>
-                    <p className="text-gray-600 text-sm">Campaigns</p>
+                    <p className="text-sm">Campaigns</p>
                   </Link>
 
                   {/* Contacts */}
@@ -115,7 +115,7 @@ function Home() {
                     <h3 className="text-3xl font-bold text-gray-900 mb-1">
                       {dashboardData.contacts.length}
                     </h3>
-                    <p className="text-gray-600 text-sm">Contacts</p>
+                    <p className=" text-sm">Contacts</p>
                   </Link>
 
                   {/* SMTP Servers */}
@@ -129,7 +129,7 @@ function Home() {
                     <h3 className="text-3xl font-bold text-gray-900 mb-1">
                       {dashboardData.smtpConfigs.length}
                     </h3>
-                    <p className="text-gray-600 text-sm">SMTP Servers</p>
+                    <p className="text-sm">SMTP Servers</p>
                   </Link>
                 </div>
               )}
@@ -137,7 +137,7 @@ function Home() {
           </section>
 
           {/* CTA Section */}
-          <section className="py-8">
+          {/* <section className="py-8">
             <div className="max-w-6xl mx-auto px-6">
               <div className="bg-gray-900 text-white rounded-md p-6 flex items-center justify-between">
                 <h2 className="text-2xl font-light">
@@ -151,7 +151,7 @@ function Home() {
                 </Link>
               </div>
             </div>
-          </section>
+          </section> */}
 
           {/* Recent Campaigns */}
           <section className="py-8">
