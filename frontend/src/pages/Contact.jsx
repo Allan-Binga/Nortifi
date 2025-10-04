@@ -12,7 +12,6 @@ import Papa from "papaparse"
 function Contact() {
   const navigate = useNavigate()
   const [isCountryOpen, setIsCountryOpen] = useState(false);
-  const [isCodeOpen, setIsCodeOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -225,7 +224,7 @@ function Contact() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 relative">
+    <div className="flex h-screen bg-blue-50 relative">
       {/* Spinner Overlay */}
       {showSpinner && (
         <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
