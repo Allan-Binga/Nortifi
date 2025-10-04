@@ -136,7 +136,7 @@ function RegisterSMTP() {
                         value={smtpData.name}
                         onChange={handleInputChange}
                         placeholder="e.g., My Gmail SMTP"
-                        className="w-full px-4 py-3 rounded-sm border border-blue-200 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                       />
                     </div>
 
@@ -151,7 +151,7 @@ function RegisterSMTP() {
                         value={smtpData.host}
                         onChange={handleInputChange}
                         placeholder="e.g., smtp.gmail.com"
-                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                       />
                     </div>
 
@@ -167,7 +167,7 @@ function RegisterSMTP() {
                         onChange={handleInputChange}
                         placeholder="e.g., user@gmail.com"
                         required
-                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                       />
                     </div>
 
@@ -184,7 +184,7 @@ function RegisterSMTP() {
                           onChange={handleInputChange}
                           placeholder="Enter your SMTP password"
                           required
-                          className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                          className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                         />
                         <button
                           type="button"
@@ -221,7 +221,7 @@ function RegisterSMTP() {
                       <button
                         type="button"
                         onClick={() => setShowAdvanced(!showAdvanced)}
-                        className="text-sm text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-sm text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <Settings className="w-4 h-4" />
                         {showAdvanced ? "Hide" : "Show More"}
@@ -240,7 +240,7 @@ function RegisterSMTP() {
                             <button
                               type="button"
                               onClick={() => setIsOpen(!isOpen)}
-                              className="w-full flex justify-between items-center px-4 py-3 rounded-sm bg-white border border-blue-300 text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-slate-400 hover:slate-amber-300"
+                              className="w-full flex justify-between items-center px-4 py-3 rounded-sm bg-white border border-blue-300"
                             >
                               {smtpData.port
                                 ? PORT_OPTIONS.find(
@@ -254,7 +254,7 @@ function RegisterSMTP() {
                             </button>
 
                             {isOpen && (
-                              <ul className="absolute mt-2 w-full rounded-xl bg-white shadow-lg border border-gray-200 z-10 animate-fadeIn">
+                              <ul className="absolute mt-2 w-full rounded-xl bg-white shadow-lg border border-blue-100 z-10 animate-fadeIn">
                                 {PORT_OPTIONS.map((option) => (
                                   <li
                                     key={option.value}
@@ -319,7 +319,7 @@ function RegisterSMTP() {
                         onChange={handleInputChange}
                         placeholder="Enter a recipient to verify"
                         required
-                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                        className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                       />
                     </div>
 

@@ -627,24 +627,38 @@ const getEmailCampaigns = async (req, res) => {
   }
 };
 
-//Fetch campaigns by status
+// Fetch campaigns by status (or all)
 const getCampaignsByStatus = async (req, res) => {
-  const userId = req.userId
-  const { status } = req.params
-  try {
-    const result = await client.query(
-      `SELECT * FROM campaigns
-       WHERE user_id = $1 AND status = $2
-       ORDER BY created_at DESC`,
-      [userId, status]
-    )
+  const userId = req.userId;
+  const { status } = req.params;
 
-    res.status(200).json(result.rows)
+  try {
+    let result;
+
+    if (status === "all") {
+      // Fetch all campaigns for the user
+      result = await client.query(
+        `SELECT * FROM campaigns
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+      );
+    } else {
+      // Fetch campaigns by specific status
+      result = await client.query(
+        `SELECT * FROM campaigns
+         WHERE user_id = $1 AND status = $2
+         ORDER BY created_at DESC`,
+        [userId, status]
+      );
+    }
+
+    res.status(200).json(result.rows);
   } catch (error) {
-    console.error("Error fetching campaigns:", error)
-    res.status(500).json({ message: "Server error" })
+    console.error("Error fetching campaigns:", error);
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 // Get Single Campaign with Recipients
 const getSingleCampaign = async (req, res) => {

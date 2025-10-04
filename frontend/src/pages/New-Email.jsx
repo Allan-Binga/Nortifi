@@ -1132,7 +1132,7 @@ function NewEmail() {
   const tabs = ["ADVANCED", "EMAIL", "RECIPIENTS", "SCHEDULING & SETTINGS"];
 
   return (
-    <div className="flex h-screen bg-gray-100 relative">
+    <div className="flex h-screen bg-blue-50 relative">
       {/* Spinner Overlay */}
       {showSpinner && (
         <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
@@ -1144,7 +1144,7 @@ function NewEmail() {
       <div className="flex-1 flex flex-col">
         <Label />
         <div className="flex-1 overflow-y-auto">
-          <div className="relative z-10 container mx-auto px-4 py-8 pt-4 sm:px-6 lg:px-8">
+          <div className="relative z-10 container mx-auto px-4 py-8 pt-20 pb-20 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                 {/* Header */}

@@ -71,7 +71,7 @@ function SMTPDetails() {
                 <Label />
                 <div className="flex-1 overflow-y-auto">
                     {/* Card */}
-                    <div className="max-w-3xl mx-auto px-6 mt-20">
+                    <div className="max-w-3xl mx-auto px-6 mt-20 mb-20">
                         <div className="bg-white rounded-md border border-blue-200 overflow-hidden">
 
                             {/* Header */}

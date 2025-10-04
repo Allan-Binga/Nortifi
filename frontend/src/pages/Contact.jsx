@@ -4,13 +4,16 @@ import { useState } from "react";
 import axios from "axios";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
-import { Plus, X, Loader2, Upload } from "lucide-react";
+import { Plus, X, Loader2, Upload, ChevronDown } from "lucide-react";
 import Spinner from "../components/Spinner";
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse"
 
 function Contact() {
   const navigate = useNavigate()
+  const [isCountryOpen, setIsCountryOpen] = useState(false);
+  const [isCodeOpen, setIsCodeOpen] = useState(false);
+  const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -234,25 +237,25 @@ function Contact() {
       <div className="flex-1 flex flex-col">
         <Label />
         <div className="flex-1 overflow-y-auto">
-          <div className="relative z-10 container mx-auto px-4 py-8 pt-4 sm:px-6 lg:px-8">
+          <div className="relative z-10 container mx-auto px-4 py-8 pt-20 pb-20 sm:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto">
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="bg-white rounded-sm  overflow-hidden">
                 {/* Header */}
-                <div className="bg-gray-50 px-8 py-6 border-b border-gray-200">
+                <div className="bg-blue-100 px-8 py-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-semibold text-gray-800">
                       {editingContact ? "Update Contact" : "Create New Contact"}
                     </h2>
                     <button
                       onClick={handleCancelEdit}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="cursor-pointer text-gray-400 hover:text-gray-600"
                     >
-                      ✕
+                      <X className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Form */}
+                {/*Create Contact Form */}
                 <div className="p-8">
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -271,9 +274,9 @@ function Contact() {
                           value={formData.firstName}
                           onChange={handleInputChange}
                           required
-                          className={`w-full px-4 py-3 rounded-lg shadow-sm border transition duration-200 ${errors.name
+                          className={`w-full px-4 py-3 rounded-sm border ${errors.name
                             ? "border-red-300 focus:ring-2 focus:ring-red-500"
-                            : "border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            : "border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             }`}
                           placeholder="Enter first name"
                         />
@@ -297,11 +300,11 @@ function Contact() {
                           value={formData.lastName}
                           onChange={handleInputChange}
                           required
-                          className={`w-full px-4 py-3 rounded-lg shadow-sm border transition duration-200 ${errors.name
+                          className={`w-full px-4 py-3 rounded-lsm border ${errors.name
                             ? "border-red-300 focus:ring-2 focus:ring-red-500"
-                            : "border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            : "border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             }`}
-                          placeholder="Enter first name"
+                          placeholder="Enter last name"
                         />
                         {errors.lastName && (
                           <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>
@@ -323,9 +326,9 @@ function Contact() {
                           value={formData.email}
                           onChange={handleInputChange}
                           required
-                          className={`w-full px-4 py-3 rounded-lg shadow-sm border transition duration-200 ${errors.email
+                          className={`w-full px-4 py-3 rounded-sm border ${errors.email
                             ? "border-red-300 focus:ring-2 focus:ring-red-500"
-                            : "border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                            : "border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             }`}
                           placeholder="Enter email address"
                         />
@@ -349,9 +352,9 @@ function Contact() {
                             name="countryCode"
                             value={formData.countryCode}
                             onChange={handleInputChange}
-                            className={`rounded-l-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 transition duration-200 ${errors.phoneNumber
+                            className={`rounded-l-lg border border-blue-200 bg-slate-50 px-4 py-3 text-xs ${errors.phoneNumber
                               ? "border-red-300 focus:ring-red-500"
-                              : "border-slate-200"
+                              : "border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                               }`}
                           >
                             {countryCodes.map((cc) => (
@@ -366,9 +369,9 @@ function Contact() {
                             name="phoneNumber"
                             value={formData.phoneNumber}
                             onChange={handleInputChange}
-                            className={`flex-1 rounded-r-lg border border-l-0 shadow-sm px-4 py-3 focus:outline-none focus:ring-2 transition duration-200 ${errors.phoneNumber
+                            className={`flex-1 rounded-sm border border-l-0 px-4 py-3 focus:outline-none focus:ring-2 transition duration-200 ${errors.phoneNumber
                               ? "border-red-300 focus:ring-red-500"
-                              : "border-slate-200 focus:ring-teal-500 focus:border-transparent"
+                              : "border-blue-300 focus:ring-blue-100"
                               }`}
                             placeholder="Enter phone number"
                           />
@@ -398,7 +401,7 @@ function Contact() {
                           name="website"
                           value={formData.website}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition duration-200"
+                          className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                           placeholder="ABC Apartments"
                         />
                       </div>
@@ -417,36 +420,51 @@ function Contact() {
                           name="address"
                           value={formData.address}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition duration-200"
+                          className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                           placeholder="123 Main Street, Apt 4B"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                      {/* Country */}
+                      {/* Country Dropdown */}
                       <div>
-                        <label
-                          htmlFor="country"
-                          className="block text-xs font-semibold text-slate-700 mb-2"
-                        >
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
                           Country
                         </label>
-                        <select
-                          id="country"
-                          name="country"
-                          value={formData.country}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition duration-200"
-                        >
-                          <option value="">Select Country</option>
-                          <option value="Kenya">Kenya</option>
-                          <option value="United States">United States</option>
-                          <option value="United Kingdom">United Kingdom</option>
-                          <option value="India">India</option>
-                          <option value="Canada">Canada</option>
-                          <option value="Australia">Australia</option>
-                        </select>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsCountryOpen(!isCountryOpen)}
+                            className="w-full flex justify-between items-center px-4 py-3 rounded-sm bg-white border border-blue-300"
+                          >
+                            {formData.country || "Select Country"}
+                            <ChevronDown
+                              className={`w-5 h-5 text-gray-500 transform transition-transform ${isCountryOpen ? "rotate-180" : "rotate-0"
+                                }`}
+                            />
+                          </button>
+
+                          {isCountryOpen && (
+                            <ul className="absolute mt-2 w-full rounded-sm bg-white border border-blue-100 z-10 animate-fadeIn">
+                              {["Kenya", "United States", "United Kingdom", "India", "Canada", "Australia"].map(
+                                (country) => (
+                                  <li
+                                    key={country}
+                                    onClick={() => {
+                                      setFormData((prev) => ({ ...prev, country }));
+                                      setIsCountryOpen(false);
+                                    }}
+                                    className={`px-4 py-3 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${formData.country === country ? "bg-amber-100 text-amber-700" : ""
+                                      }`}
+                                  >
+                                    {country}
+                                  </li>
+                                )
+                              )}
+                            </ul>
+                          )}
+                        </div>
                       </div>
 
                       {/* State */}
@@ -463,32 +481,47 @@ function Contact() {
                           name="state"
                           value={formData.state}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition duration-200"
+                          className="w-full px-4 py-3 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                           placeholder="Nairobi / California / Ontario"
                         />
                       </div>
 
-                      {/* Gender */}
+                      {/* Gender Dropdown */}
                       <div>
-                        <label
-                          htmlFor="gender"
-                          className="block text-xs font-semibold text-slate-700 mb-2"
-                        >
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
                           Gender
                         </label>
-                        <select
-                          id="gender"
-                          name="gender"
-                          value={formData.gender}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition duration-200"
-                        >
-                          <option value="">Select Gender</option>
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                          <option value="Other">Other</option>
-                          <option value="Prefer not to say">Prefer not to say</option>
-                        </select>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsGenderOpen(!isGenderOpen)}
+                            className="w-full flex justify-between items-center px-4 py-3 rounded-sm bg-white border border-blue-300"
+                          >
+                            {formData.gender || "Select Gender"}
+                            <ChevronDown
+                              className={`w-5 h-5 text-gray-500 transform transition-transform ${isGenderOpen ? "rotate-180" : "rotate-0"
+                                }`}
+                            />
+                          </button>
+
+                          {isGenderOpen && (
+                            <ul className="absolute mt-2 w-full rounded-sm bg-white border border-blue-100 z-10 animate-fadeIn">
+                              {["Male", "Female", "Other", "Prefer not to say"].map((gender) => (
+                                <li
+                                  key={gender}
+                                  onClick={() => {
+                                    setFormData((prev) => ({ ...prev, gender }));
+                                    setIsGenderOpen(false);
+                                  }}
+                                  className={`px-4 py-3 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${formData.gender === gender ? "bg-amber-100 text-amber-700" : ""
+                                    }`}
+                                >
+                                  {gender}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       </div>
                     </div>
 

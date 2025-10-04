@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Mail, LogOut, Mails, Users, Server, Home, Eye, Plus, Globe, Send, PencilLine } from "lucide-react";
+import { Mail, CalendarClock, TableOfContents, LogOut, Mails, Users, Server, Home, Eye, Plus, Globe, Send, PencilLine } from "lucide-react";
 import { fetchSMTPs } from "../utils/smtp";
 import { backend } from "../server";
 import axios from "axios";
@@ -10,7 +10,7 @@ function Sidebar() {
     const [smtps, setSmtps] = useState([]);
     const [activeDropdown, setActiveDropdown] = useState(null);
     const navigate = useNavigate();
-    const location = useLocation(); 
+    const location = useLocation();
 
     const navItems = [
         { name: "Home", path: "/home", icon: <Home className="w-5 h-5 mr-2" /> },
@@ -18,7 +18,9 @@ function Sidebar() {
         {
             name: "Emails", icon: <Mails className="w-5 h-5 mr-2" />,
             subItems: [
+                { name: "All Emails", path: "/emails/all", icon: <TableOfContents className="w-4 h-4" /> },
                 { name: "Sent", path: "/emails/sent", icon: <Send className="w-4 h-4" /> },
+                 { name: "Scheduled", path: "/emails/scheduled", icon: <CalendarClock className="w-4 h-4" /> },
                 { name: "Drafts", path: "/emails/drafts", icon: <PencilLine className="w-4 h-4" /> },
             ],
         },
