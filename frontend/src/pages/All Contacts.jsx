@@ -222,13 +222,13 @@ function Contacts() {
                                                         <td className="px-4 py-2">{contact.first_name}</td>
                                                         <td className="px-4 py-2">{contact.last_name}</td>
                                                         <td className="px-4 py-2">
-                                                            <a href={`mailto:${contact.email}`} className="text-teal-600 hover:text-teal-800 hover:underline">
+                                                            <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-700 hover:underline">
                                                                 {contact.email}
                                                             </a>
                                                         </td>
                                                         <td className="px-4 py-2">
                                                             {contact.phone_number ? (
-                                                                <a href={`tel:${contact.phone_number}`} className="text-teal-600 hover:text-teal-800 hover:underline">
+                                                                <a href={`tel:${contact.phone_number}`} className="text-blue-600 hover:text-blue-800 hover:underline">
                                                                     {contact.phone_number}
                                                                 </a>
                                                             ) : (
