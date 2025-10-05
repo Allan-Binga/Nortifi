@@ -682,7 +682,7 @@ function Contact() {
 
                         {/* Download Sample CSV */}
                         <a
-                          href="/sample-contacts.csv"
+                          href="https://nortifi.s3.eu-north-1.amazonaws.com/nortifi/1758773514679-sample_contacts.csv"
                           download="sample-contacts.csv"
                           className="px-4 py-3 rounded-sm bg-gray-100 text-gray-700 text-sm font-medium border border-gray-300 flex items-center gap-2 hover:bg-gray-200 transition"
                         >
