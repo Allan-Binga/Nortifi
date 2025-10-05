@@ -27,7 +27,7 @@ const getContacts = async (req, res) => {
 // Create a contact
 const createContact = async (req, res) => {
   try {
-    const { firstName, lastName, email, website, phoneNumber, address, country, state, gender } = req.body;
+    const { firstName, lastName, email, website, phoneNumber, address, country, state, gender, tag } = req.body;
     const userId = req.userId;
 
     const unsubscribeToken = crypto.randomBytes(20).toString("hex");
@@ -44,10 +44,11 @@ const createContact = async (req, res) => {
         state,
         gender,
         website,
-        unsubscribe_token
+        unsubscribe_token,
+        tag
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
       )
       RETURNING *`,
       [
@@ -62,6 +63,7 @@ const createContact = async (req, res) => {
         gender,
         website,
         unsubscribeToken,
+        tag
       ]
     );
 
@@ -87,8 +89,7 @@ const createContact = async (req, res) => {
   }
 };
 
-
-//Add Contacts via CSV
+// Add Contacts via CSV
 const addViaCSV = async (req, res) => {
   try {
     if (!req.file) {
@@ -100,26 +101,57 @@ const addViaCSV = async (req, res) => {
     const key = req.file.key; // multer-s3
     const contacts = [];
 
+    // Mapping
+    let mapping = {};
+    try {
+      mapping = JSON.parse(req.body.mapping || "{}");
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid mapping format" });
+    }
+
     // Fetch file from S3
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const response = await s3.send(command);
 
-    // Parse CSV stream
+    // Parse CSV stream with mapping applied
     await new Promise((resolve, reject) => {
       response.Body.pipe(csv())
         .on("data", (row) => {
           const unsubscribeToken = crypto.randomBytes(20).toString("hex");
 
-          contacts.push({
+          // row keys are the CSV headers, e.g. "email", "phone_number", etc.
+          const headers = Object.keys(row); // e.g. ["tag","phone_number","name","website","email"]
+
+          const contact = {
             user_id: userId,
-            phone_number: row.phone_number || null,
-            email: row.email,
-            name: row.name || null,
-            tag: row.tag || "New Client",
-            website: row.website || null,
+            phone_number: null,
+            email: null,
+            first_name: null,
+            last_name: null,
+            tag: "New Client",
+            website: null,
             unsubscribe_token: unsubscribeToken,
-          });
+          };
+
+          // Go through each column index mapped by the frontend
+          for (const [colIndex, fieldName] of Object.entries(mapping)) {
+            const header = headers[colIndex]; // find the CSV header name at that index
+            const value = row[header];
+
+            if (fieldName === "name" && value) {
+              const parts = value.split(" ");
+              contact.first_name = parts[0] || null;
+              contact.last_name = parts.slice(1).join(" ") || null;
+            } else {
+              contact[fieldName] = value || contact[fieldName];
+            }
+          }
+
+          if (contact.email) {
+            contacts.push(contact);
+          }
         })
+
         .on("end", resolve)
         .on("error", reject);
     });
@@ -128,14 +160,15 @@ const addViaCSV = async (req, res) => {
     for (const c of contacts) {
       await client.query(
         `INSERT INTO contacts 
-         (user_id, phone_number, email, name, tag, website, unsubscribe_token)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         (user_id, phone_number, email, first_name, last_name, tag, website, unsubscribe_token)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
          ON CONFLICT (email, user_id) DO NOTHING`,
         [
           c.user_id,
           c.phone_number,
           c.email,
-          c.name,
+          c.first_name,
+          c.last_name,
           c.tag,
           c.website,
           c.unsubscribe_token,
@@ -153,6 +186,7 @@ const addViaCSV = async (req, res) => {
     return res.status(500).json({ error: "Failed to import contacts" });
   }
 };
+
 
 // Update a contact
 const updateContact = async (req, res) => {

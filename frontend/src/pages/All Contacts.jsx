@@ -2,11 +2,13 @@ import Sidebar from "../components/Sidebar";
 import Label from "../components/Label";
 import { backend } from "../server";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import { Edit2, Trash2, Loader2, ArrowRight, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { notify } from "../utils/toast";
 
 function Contacts() {
+    const navigate = useNavigate()
     const [contacts, setContacts] = useState([]);
     const [formData, setFormData] = useState({
         firstName: "",
@@ -182,12 +184,16 @@ function Contacts() {
                                     </div>
                                 ) : contacts.length === 0 ? (
                                     <div className="text-center py-8">
-                                        <p className="text-blue-600 text-sm mb-2">
-                                            No contacts found.
+                                        <p className="text-slate-500 text-xs mb-4">
+                                            Try creating a new contact.
                                         </p>
-                                        <p className="text-blue-500 text-xs">
-                                            Create your first contact using the form above.
-                                        </p>
+
+                                        <button
+                                            onClick={() => navigate("/add-contact")}
+                                            className="px-4 py-3 rounded-sm bg-blue-600 font-bold text-white cursor-pointer hover:bg-blue-700"
+                                        >
+                                            + Add Contact
+                                        </button>
                                     </div>
                                 ) : (
                                     <div className="max-h-[500px] overflow-y-auto">

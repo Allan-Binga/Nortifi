@@ -1,6 +1,6 @@
 import Sidebar from "../components/Sidebar";
 import Label from "../components/Label";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
@@ -9,9 +9,11 @@ import Spinner from "../components/Spinner";
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse"
 import PhoneInput from "react-phone-number-input"
+import { isValidPhoneNumber } from "react-phone-number-input"
 
 function Contact() {
   const navigate = useNavigate()
+  const [openMappingDropdowns, setOpenMappingDropdowns] = useState({});
   const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [phoneInputValue, setPhoneInputValue] = useState('');
@@ -25,7 +27,8 @@ function Contact() {
     address: "",
     country: "",
     state: "",
-    gender: ""
+    gender: "",
+    tag: ""
   });
   const [editingContact, setEditingContact] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +38,25 @@ function Contact() {
   const [isUploading, setIsUploading] = useState(false);
   const [csvPreview, setCsvPreview] = useState([]);
   const [mapping, setMapping] = useState({});
+  const mappingRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (mappingRef.current && !mappingRef.current.contains(e.target)) {
+        setOpenMappingDropdowns({});
+      }
+    };
+    const handleEsc = (e) => {
+      if (e.key === "Escape") setOpenMappingDropdowns({});
+    };
+
+    window.addEventListener("click", handleClickOutside);
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("click", handleClickOutside);
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -47,6 +69,24 @@ function Contact() {
       },
     });
   };
+
+  const handleDeselectFile = () => {
+    setCSVFile(null);
+    setCsvPreview([]);
+    setMapping({});
+    setOpenMappingDropdowns({});
+  };
+
+  const MAPPING_OPTIONS = [
+    { value: "first_name", label: "First Name" },
+    { value: "last_name", label: "Last Name" },
+    { value: "email", label: "Email" },
+    { value: "phone_number", label: "Phone Number" },
+    { value: "tag", label: "Tag" },
+    { value: "website", label: "Website" },
+  ];
+
+
 
   const countryCodes = [
     { code: "+1", country: "US/Canada", flag: "🇺🇸" },
@@ -84,7 +124,6 @@ function Contact() {
     }
   };
 
-  const isPhoneValid = phoneInputValue ? isValidPhoneNumber(phoneInputValue) : true;
 
   const validatePhoneNumber = (phoneNumber) => {
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
@@ -163,7 +202,8 @@ function Contact() {
         address: "",
         country: "",
         state: "",
-        gender: ""
+        gender: "",
+        tag: ""
       });
       setErrors({});
 
@@ -206,15 +246,13 @@ function Contact() {
         }
       );
       notify.success(response.data.message || "CSV uploaded successfully");
-      // Refresh contacts list after successful upload
-      const contactsResponse = await axios.get(
-        `${backend}/contacts/all-contacts`,
-        {
-          withCredentials: true,
-        }
-      );
-      setContacts(contactsResponse.data);
-      setCSVFile(null); // Clear the file input
+
+      setShowSpinner(true)
+      setTimeout(() => {
+        navigate("/contacts")
+      }, 2000)
+
+      handleDeselectFile()
     } catch (error) {
       console.error("Error uploading CSV:", error);
       notify.error("Failed to upload CSV");
@@ -223,22 +261,6 @@ function Contact() {
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingContact(null);
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phoneNumber: "",
-      countryCode: "+254",
-      website: "",
-      state: "",
-      gender: "",
-      address: "",
-      country: ""
-    });
-    setErrors({});
-  };
 
   return (
     <div className="flex h-screen bg-blue-50 relative">
@@ -255,7 +277,7 @@ function Contact() {
         <div className="flex-1 overflow-y-auto">
           <div className="relative z-10 container mx-auto px-4 py-8 pt-20 pb-20 sm:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto">
-              <div className="bg-white rounded-sm  overflow-hidden">
+              <div className="bg-white rounded-sm  border border-blue-200 overflow-hidden">
                 {/* Header */}
                 <div className="bg-blue-100 px-8 py-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
@@ -263,7 +285,6 @@ function Contact() {
                       {editingContact ? "Update Contact" : "Create New Contact"}
                     </h2>
                     <button
-                      onClick={handleCancelEdit}
                       className="cursor-pointer text-gray-400 hover:text-gray-600"
                     >
                       <X className="h-5 w-5" />
@@ -441,7 +462,7 @@ function Contact() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                       {/* Country Dropdown */}
                       <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                        <label className="block text-xs font-bold text-gray-700 mb-2">
                           Country
                         </label>
                         <div className="relative">
@@ -535,6 +556,29 @@ function Contact() {
                           )}
                         </div>
                       </div>
+
+                      {/* Tag */}
+                      <div>
+                        <label
+                          htmlFor="tag"
+                          className="block text-xs font-semibold text-slate-700 mb-2"
+                        >
+                          Tag <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="tag"
+                          name="tag"
+                          value={formData.tag}
+                          onChange={handleInputChange}
+                          required
+                          className={`w-full px-4 py-3 rounded-sm border ${errors.name
+                            ? "border-red-300 focus:ring-2 focus:ring-red-500"
+                            : "border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                            }`}
+                          placeholder="e.g New client, Returning Client"
+                        />
+                      </div>
                     </div>
 
 
@@ -542,27 +586,22 @@ function Contact() {
                     {csvPreview.length > 0 && (
                       <div className="space-y-4 mt-4">
                         <h3 className="font-semibold">Preview & Map your columns</h3>
-
-                        {/* Preview table */}
-                        <div className="overflow-x-auto border rounded-md">
+                        <div className="overflow-x-auto border border-blue-200 rounded-sm">
                           <table className="min-w-full border-collapse text-sm">
                             <thead>
                               <tr>
-                                {csvPreview[0].map((_, colIndex) => (
-                                  <th
-                                    key={colIndex}
-                                    className="px-3 py-2 border-b bg-gray-100 text-left font-medium"
-                                  >
-                                    Column {colIndex + 1}
+                                {csvPreview[0].map((header, index) => (
+                                  <th key={index} className="px-3 py-2 bg-blue-100 text-left text-xs font-semibold text-gray-600">
+                                    Column {index + 1}
                                   </th>
                                 ))}
                               </tr>
                             </thead>
                             <tbody>
                               {csvPreview.slice(0, 5).map((row, rowIndex) => (
-                                <tr key={rowIndex} className="even:bg-gray-50">
+                                <tr key={rowIndex} className="even:bg-blue-50">
                                   {row.map((cell, cellIndex) => (
-                                    <td key={cellIndex} className="px-3 py-2 border-b">
+                                    <td key={cellIndex} className="px-3 py-2">
                                       {cell}
                                     </td>
                                   ))}
@@ -573,25 +612,54 @@ function Contact() {
                         </div>
 
                         {/* Mapping controls */}
-                        {csvPreview[0].map((_, colIndex) => (
-                          <div key={colIndex} className="flex items-center gap-4">
-                            <span className="text-sm text-gray-600">Column {colIndex + 1}</span>
-                            <select
-                              value={mapping[colIndex] || ""}
-                              onChange={(e) =>
-                                setMapping({ ...mapping, [colIndex]: e.target.value })
-                              }
-                              className="border border-gray-200 rounded px-3 py-2"
-                            >
-                              <option value="">-- Select field --</option>
-                              <option value="email">Email</option>
-                              <option value="name">Name</option>
-                              <option value="phone_number">Phone Number</option>
-                              <option value="tag">Tag</option>
-                              <option value="website">Website</option>
-                            </select>
-                          </div>
-                        ))}
+                        <div ref={mappingRef} className="flex flex-wrap gap-6 mt-6">
+                          {csvPreview[0].map((_, colIndex) => (
+                            <div key={colIndex} className="flex flex-col w-48 relative">
+                              <span className="text-sm text-gray-600 mb-1">Column {colIndex + 1}</span>
+
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // prevent outer click handler from closing immediately
+                                    setOpenMappingDropdowns((prev) => ({
+                                      ...prev,
+                                      [colIndex]: !prev[colIndex],
+                                    }));
+                                  }}
+                                  className="w-full flex justify-between items-center px-4 py-3 rounded-sm bg-white border border-blue-300"
+                                >
+                                  {mapping[colIndex]
+                                    ? MAPPING_OPTIONS.find((o) => o.value === mapping[colIndex])?.label
+                                    : "Select field"}
+                                  <ChevronDown
+                                    className={`w-5 h-5 text-gray-500 transform transition-transform ${openMappingDropdowns[colIndex] ? "rotate-180" : "rotate-0"
+                                      }`}
+                                  />
+                                </button>
+
+                                {openMappingDropdowns[colIndex] && (
+                                  <ul className="absolute left-0 mt-2 w-full rounded-sm bg-white border border-blue-100 z-50 max-h-40 overflow-y-auto shadow-sm animate-fadeIn">
+                                    {MAPPING_OPTIONS.map((opt) => (
+                                      <li
+                                        key={opt.value}
+                                        onClick={() => {
+                                          setMapping((prev) => ({ ...prev, [colIndex]: opt.value }));
+                                          setOpenMappingDropdowns({});
+                                        }}
+                                        className={`px-4 py-3 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${mapping[colIndex] === opt.value ? "bg-amber-100 text-amber-700" : ""
+                                          }`}
+                                      >
+                                        {opt.label}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
                       </div>
                     )}
 
@@ -602,44 +670,78 @@ function Contact() {
                           <Upload className="w-4 h-4 text-indigo-600" />
                           <span>Selected file: {csvFile.name}</span>
                           <button
-                            onClick={() => setCSVFile(null)}
+                            onClick={handleDeselectFile}
                             className="text-red-500 hover:text-red-700"
                           >
                             <X className="w-4 h-4" />
                           </button>
                         </div>
                       )}
-                      <div className="flex justify-end space-x-4 items-center">
-                        <label className="cursor-pointer px-4 py-3 rounded-sm bg-amber-600 text-white flex items-center gap-2 hover:bg-amber-700">
-                          <Upload className="w-5 h-5" />
-                          Import from CSV
-                          <input
-                            type="file"
-                            accept=".csv"
-                            onChange={handleFileChange}
-                            className="hidden"
-                          />
-                        </label>
+
+                      <div className="flex flex-wrap justify-end gap-3 items-center">
+
+                        {/* Download Sample CSV */}
+                        <a
+                          href="/sample-contacts.csv"
+                          download="sample-contacts.csv"
+                          className="px-4 py-3 rounded-sm bg-gray-100 text-gray-700 text-sm font-medium border border-gray-300 flex items-center gap-2 hover:bg-gray-200 transition"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-4 h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
+                            />
+                          </svg>
+                          Download Sample CSV
+                        </a>
+
+                        {/* Import CSV */}
+                        {!csvFile && (
+                          <label className="cursor-pointer px-4 py-3 rounded-sm bg-amber-600 text-white flex items-center gap-2 hover:bg-amber-700">
+                            <Upload className="w-5 h-5" />
+                            Import from CSV
+                            <input
+                              type="file"
+                              accept=".csv"
+                              onChange={handleFileChange}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+
+                        {/* Upload */}
                         {csvFile && (
                           <button
                             onClick={handleUploadCSV}
                             disabled={isUploading}
-                            className="px-4 py-4 rounded-sm bg-gradient-to-r from-green-500 to-green-600 text-white text-base flex items-center gap-2 hover:from-green-600 hover:to-green-700 cursor-pointer transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-3 rounded-sm bg-white text-amber-500 font-semibold border border-amber-400 flex items-center gap-2 hover:bg-amber-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {isUploading ? "Uploading..." : "Upload"}
+                            {isUploading ? "Uploading..." : "Upload CSV"}
                           </button>
                         )}
+
+                        {/* Cancel Edit */}
                         {editingContact && (
                           <button
                             type="button"
                             onClick={handleCancelEdit}
-                            className="px-8 py-3 cursor-pointer rounded-lg shadow-md bg-gradient-to-r from-slate-500 to-slate-600 text-white text-base flex items-center gap-2 hover:from-slate-600 hover:to-slate-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-8 py-3 cursor-pointer rounded-sm bg-gradient-to-r from-slate-500 to-slate-600 text-white text-base flex items-center gap-2 hover:from-slate-600 hover:to-slate-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={isSubmitting}
                           >
                             <X className="w-5 h-5" />
                             Cancel
                           </button>
                         )}
+
+                        {/* Submit */}
                         <button
                           type="submit"
                           className="px-4 py-3 cursor-pointer rounded-sm bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700"
@@ -657,8 +759,10 @@ function Contact() {
                             </>
                           )}
                         </button>
+
                       </div>
                     </div>
+
                   </form>
                 </div>
               </div>
