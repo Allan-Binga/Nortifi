@@ -1,6 +1,6 @@
-tag,email,phone_number,first_name, last_name,website
-Client,john.doe@example.com,+12025550123,John ,Doe,JD Consulting
-VIP, jane.smith@example.com, +14155552671,Jane, Smith,Smith Enterprises
-Prospect, robert.brown@example.com,+13105557890,Robert ,Brown,RB Designs
-New Client, emily.jones@example.com,+16175550145, Emily ,Jones,Jones Realty
-Partner,michael.wilson@example.com,+17185551234, Michael ,Wilson,Wilson Tec
+tag,email,phone_number,first_name,last_name,website
+Client,john.doe@example.com,+12025550123,John,Doe,JD Consulting
+VIP,jane.smith@example.com,+14155552671,Jane,Smith,Smith Enterprises
+Prospect,robert.brown@example.com,+13105557890,Robert,Brown,RB Designs
+New Client,emily.jones@example.com,+16175550145,Emily,Jones,Jones Realty
+Partner,michael.wilson@example.com,+17185551234,Michael,Wilson,Wilson Tech
