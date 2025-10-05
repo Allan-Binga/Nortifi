@@ -42,7 +42,7 @@ function EmailStatus() {
                     {/* Emails Table */}
                     <div className="max-w-6xl mx-auto px-6">
                         <div className="bg-white rounded-md border border-blue-200">
-                            <div className="bg-blue-100 px-6 py-3 rounded-t-md">
+                            <div className="bg-blue-100 px-6 py-3 rounded-t-sm">
                                 <h2 className="text-lg font-bold text-[#061338]">
                                     {status.charAt(0).toUpperCase() + status.slice(1)} Emails (
                                     {emails.length})
@@ -66,7 +66,7 @@ function EmailStatus() {
 
                                         <button
                                             onClick={() => navigate("/new-email")}
-                                            className="px-5 py-2 rounded-md bg-[#061338] text-white text-sm font-medium cursor-pointer hover:bg-[#0a1f57] transition"
+                                            className="px-4 py-3 rounded-sm bg-blue-600 font-bold text-white cursor-pointer hover:bg-blue-700"
                                         >
                                             + Create New Campaign
                                         </button>

@@ -8,17 +8,19 @@ import { Plus, X, Loader2, Upload, ChevronDown } from "lucide-react";
 import Spinner from "../components/Spinner";
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse"
+import PhoneInput from "react-phone-number-input"
 
 function Contact() {
   const navigate = useNavigate()
   const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
+  const [phoneInputValue, setPhoneInputValue] = useState('');
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phoneNumber: "",
-    countryCode: "+254",
+    countryCode: "",
     website: "",
     address: "",
     country: "",
@@ -68,6 +70,21 @@ function Contact() {
     const nameRegex = /^[a-zA-Z\s]{2,50}$/;
     return nameRegex.test(name.trim());
   };
+
+  const handlePhoneChange = (value) => {
+    setPhoneInputValue(value);
+    if (value) {
+      setFormData(prev => ({
+        ...prev,
+        phoneNumber: value, // Full number
+        countryCode: value.slice(0, value.indexOf(' ', 1) + 1).trim() || '', // e.g., '+254 '
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, phoneNumber: '', countryCode: '' }));
+    }
+  };
+
+  const isPhoneValid = phoneInputValue ? isValidPhoneNumber(phoneInputValue) : true;
 
   const validatePhoneNumber = (phoneNumber) => {
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
@@ -264,7 +281,7 @@ function Contact() {
                           htmlFor="firstName"
                           className="block text-xs font-semibold text-slate-700 mb-2"
                         >
-                          Firstname <span className="text-red-500">*</span>
+                          First Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -290,7 +307,7 @@ function Contact() {
                           htmlFor="lastName"
                           className="block text-xs font-semibold text-slate-700 mb-2"
                         >
-                          Lastname <span className="text-red-500">*</span>
+                          Last Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -299,7 +316,7 @@ function Contact() {
                           value={formData.lastName}
                           onChange={handleInputChange}
                           required
-                          className={`w-full px-4 py-3 rounded-lsm border ${errors.name
+                          className={`w-full px-4 py-3 rounded-sm border ${errors.name
                             ? "border-red-300 focus:ring-2 focus:ring-red-500"
                             : "border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             }`}
@@ -351,7 +368,7 @@ function Contact() {
                             name="countryCode"
                             value={formData.countryCode}
                             onChange={handleInputChange}
-                            className={`rounded-l-lg border border-blue-200 bg-slate-50 px-4 py-3 text-xs ${errors.phoneNumber
+                            className={`rounded-l-sm border border-blue-200 bg-slate-50 px-4 py-3 text-xs ${errors.phoneNumber
                               ? "border-red-300 focus:ring-red-500"
                               : "border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
                               }`}
@@ -380,10 +397,6 @@ function Contact() {
                             {errors.phoneNumber}
                           </p>
                         )}
-                        <p className="mt-1 text-xs text-slate-500">
-                          Format: {formData.countryCode}
-                          {formData.phoneNumber || "XXXXXXXXX"}
-                        </p>
                       </div>
 
                       {/* Website */}
@@ -525,10 +538,41 @@ function Contact() {
                     </div>
 
 
-                    {/* CSV Preview and Buttons */}
+                    {/* CSV Preview and Mapping */}
                     {csvPreview.length > 0 && (
                       <div className="space-y-4 mt-4">
-                        <h3 className="font-semibold">Map your columns</h3>
+                        <h3 className="font-semibold">Preview & Map your columns</h3>
+
+                        {/* Preview table */}
+                        <div className="overflow-x-auto border rounded-md">
+                          <table className="min-w-full border-collapse text-sm">
+                            <thead>
+                              <tr>
+                                {csvPreview[0].map((_, colIndex) => (
+                                  <th
+                                    key={colIndex}
+                                    className="px-3 py-2 border-b bg-gray-100 text-left font-medium"
+                                  >
+                                    Column {colIndex + 1}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {csvPreview.slice(0, 5).map((row, rowIndex) => (
+                                <tr key={rowIndex} className="even:bg-gray-50">
+                                  {row.map((cell, cellIndex) => (
+                                    <td key={cellIndex} className="px-3 py-2 border-b">
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mapping controls */}
                         {csvPreview[0].map((_, colIndex) => (
                           <div key={colIndex} className="flex items-center gap-4">
                             <span className="text-sm text-gray-600">Column {colIndex + 1}</span>
@@ -551,6 +595,7 @@ function Contact() {
                       </div>
                     )}
 
+
                     <div className="space-y-4">
                       {csvFile && (
                         <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
@@ -565,7 +610,7 @@ function Contact() {
                         </div>
                       )}
                       <div className="flex justify-end space-x-4 items-center">
-                        <label className="cursor-pointer px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-base flex items-center gap-2 hover:from-indigo-600 hover:to-indigo-700 transition duration-200">
+                        <label className="cursor-pointer px-4 py-3 rounded-sm bg-amber-600 text-white flex items-center gap-2 hover:bg-amber-700">
                           <Upload className="w-5 h-5" />
                           Import from CSV
                           <input
@@ -579,7 +624,7 @@ function Contact() {
                           <button
                             onClick={handleUploadCSV}
                             disabled={isUploading}
-                            className="px-6 py-3 rounded-lg shadow-md bg-gradient-to-r from-green-500 to-green-600 text-white text-base flex items-center gap-2 hover:from-green-600 hover:to-green-700 cursor-pointer transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-4 rounded-sm bg-gradient-to-r from-green-500 to-green-600 text-white text-base flex items-center gap-2 hover:from-green-600 hover:to-green-700 cursor-pointer transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isUploading ? "Uploading..." : "Upload"}
                           </button>
@@ -597,7 +642,7 @@ function Contact() {
                         )}
                         <button
                           type="submit"
-                          className="px-10 py-4 cursor-pointer rounded-lg shadow-lg bg-gradient-to-r from-teal-600 to-teal-700 text-white text-base font-semibold flex items-center gap-2 hover:from-teal-700 hover:to-teal-800 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                          className="px-4 py-3 cursor-pointer rounded-sm bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700"
                           disabled={isSubmitting}
                         >
                           {isSubmitting ? (

@@ -9,11 +9,12 @@ function Label() {
         "/home": "Home",
         "/new-email": "New Email",
         "/add-contact": "Create Contact",
-        "/contacts": "Contacts",
+        "/contacts": "All Contacts",
         "/sites": "Manage Websites",
         "/register-smtp": "Register SMTP Server",
         "/emails": "All Emails",
-        "/emails/sent": "Sent Emails"
+        "/emails/sent": "Sent Emails",
+        "/emails/all": "All Emails"
     };
 
     // Get the current page name, or extract from dynamic routes

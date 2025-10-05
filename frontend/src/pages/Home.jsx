@@ -14,6 +14,11 @@ function Home() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
 
   // Fetch dashboard data on mount
   useEffect(() => {
@@ -41,9 +46,18 @@ function Home() {
   return (
     <div className="flex min-h-screen bg-blue-50">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
       <div className="flex-1 flex flex-col">
+        {/* Header with Hamburger Menu */}
+        <header className="bg-white shadow-sm p-4 flex items-center justify-between md:hidden">
+          <button onClick={toggleSidebar} className="text-gray-600 focus:outline-none">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={isSidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}></path>
+            </svg>
+          </button>
+          <div className="text-lg font-semibold">Nortifi Dashboard</div>
+        </header>
         <Label />
 
         <div className="flex-1 overflow-y-auto">

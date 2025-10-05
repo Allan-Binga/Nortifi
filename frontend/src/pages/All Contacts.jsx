@@ -2,7 +2,7 @@ import Sidebar from "../components/Sidebar";
 import Label from "../components/Label";
 import { backend } from "../server";
 import axios from "axios";
-import { Edit2, Trash2, Loader2, X, Users } from "lucide-react";
+import { Edit2, Trash2, Loader2, ArrowRight, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { notify } from "../utils/toast";
 
@@ -23,6 +23,9 @@ function Contacts() {
     const [editingContact, setEditingContact] = useState(null);
     const [loading, setLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGenderOpen, setIsGenderOpen] = useState(false);
+    const [isCodeOpen, setIsCodeOpen] = useState(false);
+
 
     const countryCodes = [
         { code: "+1", country: "US/Canada", flag: "🇺🇸" },
@@ -120,9 +123,15 @@ function Contacts() {
                 { withCredentials: true }
             );
 
+            // Log the response to debug its structure
+            console.log("API Response:", response.data);
+
+            // Merge the existing contact with the updated data from the response
             setContacts((prev) =>
                 prev.map((c) =>
-                    c.contact_id === editingContact.contact_id ? response.data : c
+                    c.contact_id === editingContact.contact_id
+                        ? { ...c, ...response.data }
+                        : c
                 )
             );
             notify.success("Contact updated successfully");
@@ -150,30 +159,17 @@ function Contacts() {
     };
 
     return (
-        <div className="flex h-screen bg-gray-100">
+        <div className="flex h-screen bg-blue-50">
             {/* Sidebar */}
             <Sidebar />
             <div className="flex-1 flex flex-col">
                 <Label />
-                <div className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${editingContact ? 'blur-sm' : ''}`}>
-                    {/* Header */}
-                    <div className="text-center mb-10 mt-6">
-                        <div className="flex justify-center mb-6">
-                            <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center">
-                                <Users className="w-8 h-8 text-teal-600" />
-                            </div>
-                        </div>
-                        <h1 className="text-4xl font-light mb-2">Contacts</h1>
-                        <p className="text-lg text-gray-600 leading-relaxed">
-                            Manage and organize your contact list
-                        </p>
-                    </div>
-
+                <div className={`flex-1 overflow-y-auto p-6 transition-all duration-300 mt-20 ${editingContact ? 'blur-sm' : ''}`}>
                     {/* Contacts Table */}
-                    <div className="max-w-8xl mx-auto px-8">
-                        <div className="bg-white rounded-lg shadow-lg">
-                            <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-8 py-6 rounded-t-lg">
-                                <h2 className="text-xl font-bold text-white">
+                    <div className="max-w-8xl mx-auto px-6">
+                        <div className="bg-white rounded-sm border border-blue-200">
+                            <div className="bg-blue-100 px-6 py-3 rounded-t-sm">
+                                <h2 className="text-lg font-semibold text-[#061338]">
                                     All Contacts ({contacts.length})
                                 </h2>
                             </div>
@@ -186,10 +182,10 @@ function Contacts() {
                                     </div>
                                 ) : contacts.length === 0 ? (
                                     <div className="text-center py-8">
-                                        <p className="text-slate-600 text-sm mb-2">
+                                        <p className="text-blue-600 text-sm mb-2">
                                             No contacts found.
                                         </p>
-                                        <p className="text-slate-500 text-xs">
+                                        <p className="text-blue-500 text-xs">
                                             Create your first contact using the form above.
                                         </p>
                                     </div>
@@ -197,7 +193,7 @@ function Contacts() {
                                     <div className="max-h-[500px] overflow-y-auto">
                                         <table className="w-full text-sm text-slate-700 min-w-[1100px]">
                                             <thead>
-                                                <tr className="bg-slate-50 sticky top-0">
+                                                <tr className="bg-blue-50 sticky top-0">
                                                     <th className="px-4 py-2 text-left font-semibold text-slate-700">First Name</th>
                                                     <th className="px-4 py-2 text-left font-semibold text-slate-700">Last Name</th>
                                                     <th className="px-4 py-2 text-left font-semibold text-slate-700">Email</th>
@@ -285,154 +281,249 @@ function Contacts() {
 
                 </div>
 
-                {/* Modal for Editing */}
+                {/* Modal for Updating */}
                 {editingContact && (
-                    <div className="fixed inset-0 flex items-center justify-center bg-transparent backdrop-blur-sm z-50">
-                        <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6 relative animate-fade-in">
-                            {/* Close Button */}
-                            <button
-                                onClick={() => setEditingContact(null)}
-                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-
-                            {/* Title */}
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                                Edit Contact
-                            </h2>
+                    <div className="fixed inset-0 flex items-center justify-center z-[10000] bg-white-50 backdrop-blur-sm">
+                        <div className="bg-white rounded-sm border border-blue-200 max-w-md w-full mx-4">
+                            {/* Header */}
+                            <div className="bg-blue-100 px-6 py-3 rounded-t-md flex justify-between items-center">
+                                <h2 className="text-lg font-semibold text-[#061338]">Update Contact</h2>
+                                <button
+                                    onClick={() => setEditingContact(null)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
 
                             {/* Form */}
-                            <form onSubmit={handleUpdate} className="space-y-4">
-                                {/* Name Row */}
-                                <div className="grid grid-cols-2 gap-4">
+                            <div className="p-6">
+                                <form onSubmit={handleUpdate} className="space-y-4">
+                                    {/* Name Row */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                First Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.firstName}
+                                                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                                placeholder="e.g., John"
+                                            />
+
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Last Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.lastName}
+                                                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                                placeholder="e.g., Doe"
+                                            />
+
+                                        </div>
+                                    </div>
+
+                                    {/* Email */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Email
+                                        </label>
                                         <input
-                                            type="text"
-                                            value={formData.firstName}
-                                            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                            className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                            placeholder="e.g., john.doe@example.com"
                                         />
+
                                     </div>
+
+                                    {/* Phone Number */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                                        <input
-                                            type="text"
-                                            value={formData.lastName}
-                                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                            className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        />
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Phone Number
+                                        </label>
+                                        <div className="flex">
+                                            {/* Country Code Dropdown */}
+                                            <div className="relative w-1/3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsCodeOpen(!isCodeOpen)}
+                                                    className="w-full flex justify-between items-center px-4 py-2 rounded-l-sm bg-white border border-blue-300"
+                                                >
+                                                    {formData.countryCode
+                                                        ? countryCodes.find((c) => c.code === formData.countryCode)?.flag +
+                                                        " " +
+                                                        formData.countryCode
+                                                        : "Code"}
+                                                    <ChevronDown
+                                                        className={`w-5 h-5 text-gray-500 transform transition-transform ${isCodeOpen ? "rotate-180" : "rotate-0"
+                                                            }`}
+                                                    />
+                                                </button>
+
+                                                {isCodeOpen && (
+                                                    <ul className="absolute mt-2 w-full rounded-sm bg-white border border-blue-100 z-10 max-h-40 overflow-y-auto animate-fadeIn">
+                                                        {countryCodes.map((cc) => (
+                                                            <li
+                                                                key={cc.code}
+                                                                onClick={() => {
+                                                                    setFormData({ ...formData, countryCode: cc.code });
+                                                                    setIsCodeOpen(false);
+                                                                }}
+                                                                className={`px-4 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${formData.countryCode === cc.code
+                                                                    ? "bg-blue-100 text-blue-700"
+                                                                    : ""
+                                                                    }`}
+                                                            >
+                                                                {cc.flag} {cc.code}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+
+                                            {/* Phone Input */}
+                                            <input
+                                                type="text"
+                                                value={formData.phoneNumber}
+                                                onChange={(e) =>
+                                                    setFormData({ ...formData, phoneNumber: e.target.value })
+                                                }
+                                                className="w-2/3 px-4 py-2 rounded-r-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                                placeholder="e.g., 1234567890"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Email */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
 
-                                {/* Phone */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                                    <div className="flex">
-                                        <select
-                                            value={formData.countryCode}
-                                            onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-                                            className="border p-2 rounded-l w-1/3 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        >
-                                            {countryCodes.map((cc) => (
-                                                <option key={cc.code} value={cc.code}>
-                                                    {cc.flag} {cc.code}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="text"
-                                            value={formData.phoneNumber}
-                                            onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                                            className="border p-2 rounded-r w-2/3 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Website */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
-                                    <input
-                                        type="text"
-                                        value={formData.website}
-                                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                                        className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                {/* Address */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-                                    <input
-                                        type="text"
-                                        value={formData.address}
-                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                        className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                {/* Country + State */}
-                                <div className="grid grid-cols-2 gap-4">
+                                    {/* Website */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Website
+                                        </label>
                                         <input
                                             type="text"
-                                            value={formData.country}
-                                            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                            className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            value={formData.website}
+                                            onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                                            className="w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                            placeholder="e.g., https://example.com"
                                         />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
-                                        <input
-                                            type="text"
-                                            value={formData.state}
-                                            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                                            className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        />
-                                    </div>
-                                </div>
 
-                                {/* Gender */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
-                                    <select
-                                        value={formData.gender}
-                                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                                        className="border p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                    </div>
+
+                                    {/* Address */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Address
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.address}
+                                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                            className="w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                            placeholder="e.g., 123 Main St"
+                                        />
+
+                                    </div>
+
+                                    {/* Country + State */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Country
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.country}
+                                                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                                placeholder="e.g., United States"
+                                            />
+
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                State
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.state}
+                                                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                                className="w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-xs"
+                                                placeholder="e.g., California"
+                                            />
+
+                                        </div>
+                                    </div>
+
+                                    {/* Gender */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Gender
+                                        </label>
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsGenderOpen(!isGenderOpen)}
+                                                className="w-full flex justify-between items-center px-4 py-2 rounded-sm bg-white border border-blue-300"
+                                            >
+                                                {formData.gender || "Select gender"}
+                                                <ChevronDown
+                                                    className={`w-5 h-5 text-gray-500 transform transition-transform ${isGenderOpen ? "rotate-180" : "rotate-0"
+                                                        }`}
+                                                />
+                                            </button>
+
+                                            {isGenderOpen && (
+                                                <ul className="absolute mt-2 w-full rounded-sm bg-white border border-blue-100 z-10 animate-fadeIn">
+                                                    {["Male", "Female", "Other"].map((option) => (
+                                                        <li
+                                                            key={option}
+                                                            onClick={() => {
+                                                                setFormData({ ...formData, gender: option });
+                                                                setIsGenderOpen(false);
+                                                            }}
+                                                            className={`px-4 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${formData.gender === option ? "bg-blue-100 text-blue-700" : ""
+                                                                }`}
+                                                        >
+                                                            {option}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </div>
+
+
+                                    {/* Submit */}
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className={`group w-full bg-blue-600 font-semibold text-white px-6 py-2 rounded-sm flex justify-center items-center space-x-2 transition-all ${isSubmitting ? "opacity-70 cursor-wait" : "hover:bg-blue-700 cursor-pointer"}`}
                                     >
-                                        <option value="">Select gender</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-
-                                {/* Submit */}
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="w-full bg-teal-600 text-white py-2 px-4 rounded hover:bg-teal-700 flex justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        "Update Contact"
-                                    )}
-                                </button>
-                            </form>
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>Updating...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>Update Contact</span>
+                                                <ArrowRight className="w-4 h-4 opacity-0 -rotate-45 transform transition-all duration-300 group-hover:opacity-100 group-hover:rotate-0" />
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 )}
