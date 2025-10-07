@@ -102,10 +102,7 @@ function AddWebsiteModal({ isOpen, onClose, onSuccess }) {
             if (onSuccess) {
                 onSuccess(response.data.website);
             }
-            setTimeout(() => {
-                navigate("/sites");
-                onClose();
-            }, 2000);
+
         } catch (error) {
             const backendMessage = error.response?.data?.error;
             if (backendMessage) {
