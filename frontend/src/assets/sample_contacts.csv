@@ -1,6 +1,3 @@
-tag,email,phone_number,first_name,last_name,website
-Client,john.doe@example.com,+12025550123,John,Doe,JD Consulting
-VIP,jane.smith@example.com,+14155552671,Jane,Smith,Smith Enterprises
-Prospect,robert.brown@example.com,+13105557890,Robert,Brown,RB Designs
-New Client,emily.jones@example.com,+16175550145,Emily,Jones,Jones Realty
-Partner,michael.wilson@example.com,+17185551234,Michael,Wilson,Wilson Tech
+prefix,first_name,last_name,email,phone_number,address,city,postal_code,country,state,gender,website_id,tag
+Mr,John,Doe,john.doe@example.com,+12025550123,123 Main St,New York,10001,United States,New York,Male,website123,Client
+Mrs,Jane,Smith,jane.smith@example.com,+14155552671,456 Elm St,Los Angeles,90001,United States,California,Female,website456,VIP

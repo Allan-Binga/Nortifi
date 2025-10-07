@@ -13,7 +13,7 @@ import Home from "./pages/Home";
 import Unsubscribe from "./pages/Unsubsribe";
 import VerifyEmail from "./pages/VerifyEmail";
 import ResetPassword from "./pages/ResetPassword";
-import Sites from "./pages/Sites";
+import Sites from "./pages/WebsiteDetails"
 import Contacts from "./pages/All Contacts";
 import SMTPDetails from "./pages/SMTPServerDetails";
 import EmailStatus from "./pages/EmailsStatus";
@@ -39,7 +39,7 @@ function App() {
         <Route path="/emails/campaign/:campaignId" element={<ProtectedRoute><EmailDetails /></ProtectedRoute>} />
         <Route path="/smtp-configuration" element={<ProtectedRoute><Configurations /></ProtectedRoute>} />
         <Route path="/smtp/servers/:smtpId" element={<ProtectedRoute><SMTPDetails /></ProtectedRoute>} />
-        <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
+        <Route path="/sites/site/:websiteId" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
         <Route path="/contacts/:websiteId" element={<ProtectedRoute><WebsiteContacts /></ProtectedRoute>} />
         <Route path="/register-smtp" element={<ProtectedRoute><RegisterSMTP /></ProtectedRoute>} />
         <Route path="/unsubscribe" element={<Unsubscribe />} />

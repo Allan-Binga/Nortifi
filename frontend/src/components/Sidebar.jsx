@@ -18,28 +18,27 @@ import {
     Import,
 } from "lucide-react";
 import axios from "axios";
-
 import { fetchSMTPs } from "../utils/smtp";
 import { fetchWebsites } from "../utils/websites";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
-
+import ImportContactsModal from "./ImportContacts";
 import RegisterSMTPModal from "./RegisterSMTPModal";
 import CreateContactModal from "./CreateContact";
+import AddWebsiteModal from "./AddWebsite";
 
 function Sidebar({ isOpen, toggleSidebar }) {
     const [smtps, setSmtps] = useState([]);
     const [sites, setSites] = useState([]);
-    const [activeDropdown, setActiveDropdown] = useState(null); // main dropdown (e.g., "Contacts", "Emails", "SMTP Servers")
-    const [activeSubDropdown, setActiveSubDropdown] = useState(null); // nested submenu (e.g., "view-contacts")
+    const [activeDropdown, setActiveDropdown] = useState(null);
+    const [activeSubDropdown, setActiveSubDropdown] = useState(null);
     const [isSMTPModalOpen, setIsSMTPModalOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isWebsiteModalOpen, setIsWebsiteModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-
     const location = useLocation();
     const navigate = useNavigate();
-
-    // separate timeouts so main dropdown and sub-dropdown don't fight each other
     const mainTimeoutRef = useRef(null);
     const subTimeoutRef = useRef(null);
 
@@ -56,11 +55,14 @@ function Sidebar({ isOpen, toggleSidebar }) {
                 { name: "Drafts", path: "/emails/drafts", icon: <PencilLine className="w-4 h-4" /> },
             ],
         },
-        // We'll render Contacts specially below (so subItems is empty)
         { name: "Contacts", icon: <Users className="w-5 h-5 mr-2" />, subItems: [] },
-        // { name: "Manage Websites", path: "/sites", icon: <Globe className="w-5 h-5 mr-2" /> },
         {
-            name: "SMTP Servers",
+            name: "Websites",
+            icon: <Globe className="w-5 h-5 mr-2" />,
+            subItems: [{ name: "New Website", icon: <Globe className="w-4 h-4" /> }],
+        },
+        {
+            name: "Servers",
             icon: <Server className="w-5 h-5 mr-2" />,
             subItems: [{ name: "New Server", icon: <Server className="w-4 h-4" /> }],
         },
@@ -73,7 +75,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
         return location.pathname === item.path;
     };
 
-    // Fetch websites once
     useEffect(() => {
         const getSites = async () => {
             try {
@@ -87,7 +88,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
         getSites();
     }, []);
 
-    // Fetch SMTPs once
     useEffect(() => {
         const getSMTPs = async () => {
             try {
@@ -101,7 +101,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
         getSMTPs();
     }, []);
 
-    // Logout
     const handleLogout = async () => {
         try {
             const response = await axios.post(`${backend}/auth/user/sign-out`, {}, { withCredentials: true });
@@ -119,32 +118,28 @@ function Sidebar({ isOpen, toggleSidebar }) {
         }
     };
 
-    // Main dropdown hover handlers
     const handleMainEnter = (name) => {
         if (mainTimeoutRef.current) clearTimeout(mainTimeoutRef.current);
         if (subTimeoutRef.current) clearTimeout(subTimeoutRef.current);
         setActiveDropdown(name);
     };
+
     const handleMainLeave = () => {
-        // close main dropdown after short delay (unless sub-dropdown keeps it open)
         mainTimeoutRef.current = setTimeout(() => {
-            // only close main if sub isn't open
             if (!activeSubDropdown) setActiveDropdown(null);
         }, 200);
     };
 
-    // Sub-dropdown hover handlers (for nested "View Contacts")
     const handleSubEnter = (name) => {
         if (subTimeoutRef.current) clearTimeout(subTimeoutRef.current);
         if (mainTimeoutRef.current) clearTimeout(mainTimeoutRef.current);
         setActiveSubDropdown(name);
-        // ensure parent dropdown stays open
         setActiveDropdown("Contacts");
     };
+
     const handleSubLeave = () => {
         subTimeoutRef.current = setTimeout(() => {
             setActiveSubDropdown(null);
-            // also close main dropdown shortly after if pointer isn't over main
             mainTimeoutRef.current = setTimeout(() => setActiveDropdown(null), 150);
         }, 150);
     };
@@ -165,7 +160,38 @@ function Sidebar({ isOpen, toggleSidebar }) {
         }, 120);
     };
 
-    const handleModalSuccess = async () => {
+    const handleImportContactsClick = () => {
+        setIsLoading(true);
+        setTimeout(() => {
+            setIsLoading(false);
+            setIsImportModalOpen(true);
+        }, 120);
+    };
+
+    const handleNewWebsiteClick = () => {
+        setIsLoading(true);
+        setTimeout(() => {
+            setIsLoading(false);
+            setIsWebsiteModalOpen(true);
+        }, 120);
+    };
+
+    const handleWebsiteModalSuccess = async (newWebsite) => {
+        setIsWebsiteModalOpen(false);
+        try {
+            const data = await fetchWebsites();
+            if (data && data.websites) setSites(data.websites);
+        } catch (err) {
+            notify.error("Failed to refresh websites.");
+        }
+    };
+
+    const handleWebsiteModalClose = () => setIsWebsiteModalOpen(false);
+
+    const handleContactModalClose = () => setIsContactModalOpen(false);
+    const handleImportModalClose = () => setIsImportModalOpen(false);
+
+    const handleSMTPModalSuccess = async () => {
         setIsSMTPModalOpen(false);
         try {
             const servers = await fetchSMTPs();
@@ -175,8 +201,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
         }
     };
 
-    const handleContactModalClose = () => setIsContactModalOpen(false);
-
     return (
         <>
             {isLoading && (
@@ -185,11 +209,22 @@ function Sidebar({ isOpen, toggleSidebar }) {
                 </div>
             )}
 
-            <RegisterSMTPModal isOpen={isSMTPModalOpen} onClose={() => setIsSMTPModalOpen(false)} onSuccess={handleModalSuccess} />
+            <RegisterSMTPModal
+                isOpen={isSMTPModalOpen}
+                onClose={() => setIsSMTPModalOpen(false)}
+                onSuccess={handleSMTPModalSuccess}
+            />
             <CreateContactModal isOpen={isContactModalOpen} onClose={handleContactModalClose} />
+            <ImportContactsModal isOpen={isImportModalOpen} onClose={handleImportModalClose} />
+            <AddWebsiteModal
+                isOpen={isWebsiteModalOpen}
+                onClose={handleWebsiteModalClose}
+                onSuccess={handleWebsiteModalSuccess}
+            />
 
             <aside
-                className={`bg-[#061338] h-screen flex flex-col sticky top-0 shadow-lg z-50 transition-all duration-300 ${isOpen ? "w-64" : "w-0"} md:w-22 overflow-x-hidden md:overflow-visible`}
+                className={`bg-[#061338] h-screen flex flex-col sticky top-0 shadow-lg z-50 transition-all duration-300 ${isOpen ? "w-64" : "w-0"
+                    } md:w-22 overflow-x-hidden md:overflow-visible`}
             >
                 <div className="h-20 flex items-center justify-center border-b border-slate-700">
                     <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
@@ -201,7 +236,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
                     {navItems.map((item) => {
                         const active = isActive(item);
 
-                        // Special rendering for Contacts (we want a nested submenu)
                         if (item.name === "Contacts") {
                             return (
                                 <div
@@ -211,7 +245,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
                                     onMouseLeave={handleMainLeave}
                                 >
                                     <div
-                                        className={`flex flex-col items-center justify-center py-4 px-2 text-slate-400 cursor-pointer group transition-all duration-200 ${active ? "text-white bg-slate-700" : "hover:text-white hover:bg-slate-700"}`}
+                                        className={`flex flex-col items-center justify-center py-4 px-2 text-slate-400 cursor-pointer group transition-all duration-200 ${active ? "text-white bg-slate-700" : "hover:text-white hover:bg-slate-700"
+                                            }`}
                                     >
                                         <div className="mb-1 group-hover:scale-110 transition-transform duration-200">{item.icon}</div>
                                         <span className="text-xs text-center leading-tight">{item.name}</span>
@@ -219,12 +254,26 @@ function Sidebar({ isOpen, toggleSidebar }) {
 
                                     {activeDropdown === "Contacts" && (
                                         <div
-                                            className={`bg-[#061338] text-white rounded-xl shadow-xl flex flex-col w-52 py-2 z-[9999] md:absolute md:left-full md:top-0 md:ml-2 ${isOpen ? "absolute left-0 top-14 w-full ml-0 rounded-t-none" : "hidden md:block"} transition-opacity duration-200 ease-in-out`}
+                                            className={`bg-[#061338] text-white rounded-xl shadow-xl flex flex-col w-52 py-2 z-[9999] md:absolute md:left-full md:top-0 md:ml-2 ${isOpen ? "absolute left-0 top-14 w-full ml-0 rounded-t-none" : "hidden md:block"
+                                                } transition-opacity duration-200 ease-in-out`}
                                             onMouseEnter={() => {
                                                 if (mainTimeoutRef.current) clearTimeout(mainTimeoutRef.current);
                                             }}
                                             onMouseLeave={handleMainLeave}
                                         >
+                                            {/* All Contacts */}
+                                            <Link
+                                                to="/contacts"
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
+                                                onClick={() => {
+                                                    setActiveDropdown(null);
+                                                    if (isOpen) toggleSidebar();
+                                                }}
+                                            >
+                                                <Users className="w-4 h-4" />
+                                                All Contacts
+                                            </Link>
+
                                             {/* Create Contact */}
                                             <button
                                                 onClick={() => {
@@ -237,13 +286,19 @@ function Sidebar({ isOpen, toggleSidebar }) {
                                                 Create Contact
                                             </button>
 
-                                            {/* Import via CSV */}
-                                            <Link to="/add-contact" className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition">
+                                            {/* Import Contacts */}
+                                            <button
+                                                onClick={() => {
+                                                    handleImportContactsClick();
+                                                    setActiveDropdown(null);
+                                                }}
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
+                                            >
                                                 <Import className="w-4 h-4" />
-                                                Import contacts
-                                            </Link>
+                                                Import Contacts
+                                            </button>
 
-                                            {/* View Contacts (opens nested submenu) */}
+                                            {/* View Contacts */}
                                             <div
                                                 className="relative"
                                                 onMouseEnter={() => handleSubEnter("view-contacts")}
@@ -254,13 +309,11 @@ function Sidebar({ isOpen, toggleSidebar }) {
                                                     <span>View Contacts</span>
                                                 </div>
 
-                                                {/* Nested submenu with websites */}
                                                 {activeSubDropdown === "view-contacts" && (
                                                     <div
                                                         className="absolute left-full top-0 ml-2 bg-[#061338] text-white rounded-xl shadow-xl flex flex-col w-56 py-2 z-[10000]"
                                                         onMouseEnter={() => {
                                                             if (subTimeoutRef.current) clearTimeout(subTimeoutRef.current);
-                                                            // also keep parent open
                                                             setActiveDropdown("Contacts");
                                                         }}
                                                         onMouseLeave={handleSubLeave}
@@ -273,7 +326,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
                                                                     key={site.website_id}
                                                                     onClick={() => {
                                                                         navigate(`/contacts/${site.website_id}`);
-                                                                        // close dropdowns after navigation for better UX
                                                                         setActiveSubDropdown(null);
                                                                         setActiveDropdown(null);
                                                                         if (isOpen) toggleSidebar();
@@ -294,7 +346,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
                             );
                         }
 
-                        // Other items with subItems (Emails, SMTP Servers)
                         if (item.subItems && item.subItems.length > 0) {
                             return (
                                 <div
@@ -304,7 +355,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
                                     onMouseLeave={handleMainLeave}
                                 >
                                     <div
-                                        className={`flex flex-col items-center justify-center py-4 px-2 text-slate-400 cursor-pointer group transition-all duration-200 ${active ? "text-white bg-slate-700" : "hover:text-white hover:bg-slate-700"}`}
+                                        className={`flex flex-col items-center justify-center py-4 px-2 text-slate-400 cursor-pointer group transition-all duration-200 ${active ? "text-white bg-slate-700" : "hover:text-white hover:bg-slate-700"
+                                            }`}
                                     >
                                         <div className="mb-1 group-hover:scale-110 transition-transform duration-200">{item.icon}</div>
                                         <span className="text-xs text-center leading-tight">{item.name}</span>
@@ -312,29 +364,75 @@ function Sidebar({ isOpen, toggleSidebar }) {
 
                                     {activeDropdown === item.name && (
                                         <div
-                                            className={`bg-[#061338] text-white rounded-xl shadow-xl flex flex-col w-52 py-2 z-[9999] md:absolute md:left-full md:top-0 md:ml-2 ${isOpen ? "absolute left-0 top-14 w-full ml-0 rounded-t-none" : "hidden md:block"} transition-opacity duration-200 ease-in-out`}
+                                            className={`bg-[#061338] text-white rounded-xl shadow-xl flex flex-col w-52 py-2 z-[9999] md:absolute md:left-full md:top-0 md:ml-2 ${isOpen ? "absolute left-0 top-14 w-full ml-0 rounded-t-none" : "hidden md:block"
+                                                } transition-opacity duration-200 ease-in-out`}
                                             onMouseEnter={() => mainTimeoutRef.current && clearTimeout(mainTimeoutRef.current)}
                                             onMouseLeave={handleMainLeave}
                                         >
-                                            {item.name === "SMTP Servers" ? (
+                                            {item.name === "Servers" ? (
                                                 <>
-                                                    <button onClick={handleNewServerClick} className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full">
+                                                    <button
+                                                        onClick={handleNewServerClick}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
+                                                    >
                                                         <Server className="w-4 h-4" />
                                                         New Server
                                                     </button>
-
                                                     {smtps.length > 0 && <div className="border-t border-slate-600 my-1" />}
-
                                                     {smtps.map((smtp, index) => (
-                                                        <Link key={smtp.config_id} to={`/smtp/servers/${smtp.config_id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-500/80 rounded transition">
-                                                            <div className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">{index + 1}</div>
+                                                        <Link
+                                                            key={smtp.config_id}
+                                                            to={`/smtp/servers/${smtp.config_id}`}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-500/80 rounded transition"
+                                                        >
+                                                            <div className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">
+                                                                {index + 1}
+                                                            </div>
                                                             <span className="truncate">{smtp.name}</span>
+                                                        </Link>
+                                                    ))}
+                                                </>
+                                            ) : item.name === "Websites" ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleNewWebsiteClick();
+                                                            setActiveDropdown(null);
+                                                        }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
+                                                    >
+                                                        <Globe className="w-4 h-4" />
+                                                        New Website
+                                                    </button>
+                                                    {sites.length > 0 && <div className="border-t border-slate-600 my-1" />}
+                                                    {sites.map((site, index) => (
+                                                        <Link
+                                                            key={site.website_id}
+                                                            to={`/sites/site/${site.website_id}`}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-500/80 rounded transition"
+                                                            onClick={() => {
+                                                                setActiveDropdown(null);
+                                                                if (isOpen) toggleSidebar();
+                                                            }}
+                                                        >
+                                                            <div className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">
+                                                                {index + 1}
+                                                            </div>
+                                                            <span className="truncate">{site.company_name || site.domain}</span>
                                                         </Link>
                                                     ))}
                                                 </>
                                             ) : (
                                                 item.subItems.map((sub) => (
-                                                    <Link key={sub.name} to={sub.path} className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition">
+                                                    <Link
+                                                        key={sub.name}
+                                                        to={sub.path}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition"
+                                                        onClick={() => {
+                                                            setActiveDropdown(null);
+                                                            if (isOpen) toggleSidebar();
+                                                        }}
+                                                    >
                                                         {sub.icon}
                                                         {sub.name}
                                                     </Link>
@@ -346,12 +444,12 @@ function Sidebar({ isOpen, toggleSidebar }) {
                             );
                         }
 
-                        // Simple link items (no dropdown)
                         return (
                             <Link
                                 key={item.name}
                                 to={item.path}
-                                className={`flex flex-col items-center justify-center py-4 px-2 text-slate-400 cursor-pointer group transition-all duration-200 ${isActive(item) ? "text-white bg-slate-700" : "hover:text-white hover:bg-slate-700"}`}
+                                className={`flex flex-col items-center justify-center py-4 px-2 text-slate-400 cursor-pointer group transition-all duration-200 ${isActive(item) ? "text-white bg-slate-700" : "hover:text-white hover:bg-slate-700"
+                                    }`}
                                 onClick={() => isOpen && toggleSidebar()}
                             >
                                 <div className="mb-1 group-hover:scale-110 transition-transform duration-200">{item.icon}</div>

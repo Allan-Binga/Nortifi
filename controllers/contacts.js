@@ -44,10 +44,15 @@ const createContact = async (req, res) => {
 
     const userId = req.userId;
 
-    // Validate required fields
-    if (!firstName || !email || !websiteId) {
+    // Validate required fields dynamically
+    const missingFields = [];
+    if (!firstName) missingFields.push("First Name");
+    if (!email) missingFields.push("Email");
+    if (!websiteId) missingFields.push("Website ID");
+
+    if (missingFields.length > 0) {
       return res.status(400).json({
-        error: "First name, email, and website ID are required.",
+        error: `The following required field(s) are missing: ${missingFields.join(", ")}.`,
       });
     }
 
@@ -175,7 +180,7 @@ const createContact = async (req, res) => {
   }
 };
 
-// Add Contacts via CSV
+//IMport via CSV
 const addViaCSV = async (req, res) => {
   try {
     if (!req.file) {
@@ -187,7 +192,7 @@ const addViaCSV = async (req, res) => {
     const key = req.file.key; // multer-s3
     const contacts = [];
 
-    // Mapping
+    // Parse mapping
     let mapping = {};
     try {
       mapping = JSON.parse(req.body.mapping || "{}");
@@ -205,23 +210,29 @@ const addViaCSV = async (req, res) => {
         .on("data", (row) => {
           const unsubscribeToken = crypto.randomBytes(20).toString("hex");
 
-          // row keys are the CSV headers, e.g. "email", "phone_number", etc.
-          const headers = Object.keys(row); // e.g. ["tag","phone_number","name","website","email"]
-
+          const headers = Object.keys(row);
           const contact = {
             user_id: userId,
+            prefix: null,
             phone_number: null,
             email: null,
             first_name: null,
             last_name: null,
-            tag: "New Client",
+            address: null,
+            city: null,
+            postal_code: null,
+            country: null,
+            state: null,
+            gender: null,
             website: null,
+            tag: "New Client",
             unsubscribe_token: unsubscribeToken,
           };
 
-          // Go through each column index mapped by the frontend
-          for (const [colIndex, fieldName] of Object.entries(mapping)) {
-            const header = headers[colIndex]; // find the CSV header name at that index
+          // Apply mapping
+          for (const [fieldName, colIndex] of Object.entries(mapping)) {
+            if (fieldName === "skip") continue;
+            const header = headers[colIndex];
             const value = row[header];
 
             if (fieldName === "name" && value) {
@@ -229,46 +240,122 @@ const addViaCSV = async (req, res) => {
               contact.first_name = parts[0] || null;
               contact.last_name = parts.slice(1).join(" ") || null;
             } else {
-              contact[fieldName] = value || contact[fieldName];
+              contact[fieldName] = value || null;
             }
           }
 
-          if (contact.email) {
+          // Derive gender from prefix
+          if (contact.prefix) {
+            const normalized = contact.prefix.trim().toLowerCase();
+            if (normalized === "mr") contact.gender = "Male";
+            else if (normalized === "mrs") contact.gender = "Female";
+          }
+
+          // Validate required fields
+          const missingFields = [];
+          if (!contact.first_name) missingFields.push("First Name");
+          if (!contact.email) missingFields.push("Email");
+          if (!contact.website) missingFields.push("Website");
+
+          if (missingFields.length === 0) {
             contacts.push(contact);
           }
         })
-
         .on("end", resolve)
         .on("error", reject);
     });
 
-    // Insert contacts one by one (safe for small uploads)
+    if (contacts.length === 0) {
+      return res.status(400).json({ error: "No valid contacts found in CSV" });
+    }
+
+    // Insert contacts
+    const insertedContacts = [];
     for (const c of contacts) {
-      await client.query(
-        `INSERT INTO contacts 
-         (user_id, phone_number, email, first_name, last_name, tag, website, unsubscribe_token)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-         ON CONFLICT (email, user_id) DO NOTHING`,
-        [
-          c.user_id,
-          c.phone_number,
-          c.email,
-          c.first_name,
-          c.last_name,
-          c.tag,
-          c.website,
-          c.unsubscribe_token,
-        ]
-      );
+      const insertQuery = `
+  INSERT INTO contacts (
+    user_id, prefix, phone_number, email, first_name, last_name,
+    address, city, postal_code, country, state, gender, website, tag, unsubscribe_token
+  )
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+  ON CONFLICT (email, user_id) DO NOTHING
+  RETURNING *;
+`;
+
+      const values = [
+        c.user_id,
+        c.prefix,
+        c.phone_number,
+        c.email,
+        c.first_name,
+        c.last_name,
+        c.address,
+        c.city,
+        c.postal_code,
+        c.country,
+        c.state,
+        c.gender,
+        c.website,
+        c.tag,
+        c.unsubscribe_token,
+      ];
+
+      const result = await client.query(insertQuery, values);
+      if (result.rows[0]) {
+        insertedContacts.push(result.rows[0]);
+      }
+    }
+
+    // Update websites' JSONB contacts column
+    for (const contact of insertedContacts) {
+      const contactData = {
+        contact_id: contact.contact_id,
+        prefix: contact.prefix,
+        first_name: contact.first_name,
+        last_name: contact.last_name,
+        email: contact.email,
+        phone_number: contact.phone_number,
+        address: contact.address,
+        city: contact.city,
+        postal_code: contact.postal_code,
+        country: contact.country,
+        state: contact.state,
+        gender: contact.gender,
+        tag: contact.tag,
+        unsubscribe_token: contact.unsubscribe_token,
+        unsubscribed: contact.unsubscribed,
+        created_at: contact.created_at,
+        updated_at: contact.updated_at,
+      };
+
+      const updateJsonQuery = `
+        UPDATE websites
+        SET contacts = 
+          CASE 
+            WHEN contacts IS NULL THEN jsonb_build_array($1::jsonb)
+            ELSE contacts || $1::jsonb
+          END,
+          updated_at = NOW()
+        WHERE website_id = $2;
+      `;
+      await client.query(updateJsonQuery, [JSON.stringify(contactData), contact.website_id]);
     }
 
     return res.status(201).json({
       success: true,
-      message: "Contacts imported successfully",
-      count: contacts.length,
+      message: `Successfully imported ${insertedContacts.length} contacts`,
+      count: insertedContacts.length,
     });
   } catch (error) {
     console.error("Error importing contacts via CSV:", error);
+    if (error.code === "23505") {
+      let field = "field";
+      if (error.detail?.includes("email")) field = "Email";
+      if (error.detail?.includes("phone_number")) field = "Phone number";
+      return res.status(400).json({
+        error: `${field} is already taken for some contacts.`,
+      });
+    }
     return res.status(500).json({ error: "Failed to import contacts" });
   }
 };

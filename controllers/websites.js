@@ -68,6 +68,66 @@ const getWebsites = async (req, res) => {
     }
 };
 
+// Fetch Website Details
+const websiteDetails = async (req, res) => {
+    const userId = req.userId;
+    const { websiteId } = req.params; // assuming route: /api/websites/:website_id
+
+    try {
+        if (!websiteId) {
+            return res.status(400).json({ success: false, message: "Website ID is required." });
+        }
+
+        const query = `
+      SELECT 
+        website_id,
+        company_name,
+        domain,
+        field,
+        contacts,
+        created_at,
+        updated_at
+      FROM websites
+      WHERE user_id = $1 AND website_id = $2
+      LIMIT 1
+    `;
+
+        const result = await client.query(query, [userId, websiteId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Website not found or does not belong to the current user.",
+            });
+        }
+
+        const website = result.rows[0];
+
+        // Optional: format contacts (if stored as JSONB)
+        let contacts = [];
+        try {
+            contacts = Array.isArray(website.contacts)
+                ? website.contacts
+                : JSON.parse(website.contacts || "[]");
+        } catch {
+            contacts = [];
+        }
+
+        return res.status(200).json({
+            success: true,
+            website: {
+                ...website,
+                contacts,
+            },
+        });
+    } catch (error) {
+        console.error("Error fetching website details:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch website details.",
+        });
+    }
+};
 
 // Update Website
 const updateWebsite = async (req, res) => {
@@ -135,4 +195,4 @@ const deleteWebsite = async (req, res) => {
     }
 };
 
-module.exports = { addWebsite, getWebsites, updateWebsite, deleteWebsite };
+module.exports = { addWebsite, getWebsites, websiteDetails, updateWebsite, deleteWebsite };
