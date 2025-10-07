@@ -27,59 +27,145 @@ const getContacts = async (req, res) => {
 // Create a contact
 const createContact = async (req, res) => {
   try {
-    const { firstName, lastName, email, website, phoneNumber, address, country, state, gender, tag } = req.body;
+    const {
+      prefix,
+      firstName,
+      lastName,
+      email,
+      websiteId,
+      phoneNumber,
+      address,
+      country,
+      state,
+      city,
+      postalCode,
+      tag,
+    } = req.body;
+
     const userId = req.userId;
 
+    // Validate required fields
+    if (!firstName || !email || !websiteId) {
+      return res.status(400).json({
+        error: "First name, email, and website ID are required.",
+      });
+    }
+
+    // Determine gender
+    let gender = null;
+    if (prefix) {
+      const normalized = prefix.trim().toLowerCase();
+      if (normalized === "mr") gender = "Male";
+      else if (normalized === "mrs") gender = "Female";
+    }
+
+    // Generate unsubscribe token
     const unsubscribeToken = crypto.randomBytes(20).toString("hex");
 
-    const result = await client.query(
-      `INSERT INTO contacts (
+    // Ensure website exists for this user
+    const websiteCheck = await client.query(
+      `SELECT website_id, contacts FROM websites WHERE website_id = $1 AND user_id = $2`,
+      [websiteId, userId]
+    );
+
+    if (websiteCheck.rows.length === 0) {
+      return res.status(404).json({
+        error: "Website not found or doesn't belong to the current user.",
+      });
+    }
+
+    // Insert new contact into contacts table
+    const insertQuery = `
+      INSERT INTO contacts (
         user_id,
+        prefix,
         phone_number,
         email,
         first_name,
         last_name,
         address,
+        city,
+        postal_code,
         country,
         state,
         gender,
-        website,
+        website_id,
         unsubscribe_token,
         tag
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
       )
-      RETURNING *`,
-      [
-        userId,
-        phoneNumber,
-        email,
-        firstName,
-        lastName,
-        address,
-        country,
-        state,
-        gender,
-        website,
-        unsubscribeToken,
-        tag
-      ]
-    );
+      RETURNING *;
+    `;
+
+    const values = [
+      userId,
+      prefix,
+      phoneNumber,
+      email,
+      firstName,
+      lastName,
+      address,
+      city,
+      postalCode,
+      country,
+      state,
+      gender,
+      websiteId,
+      unsubscribeToken,
+      tag,
+    ];
+
+    const result = await client.query(insertQuery, values);
+    const newContact = result.rows[0];
+
+    // Prepare full contact object for JSONB update
+    const contactData = {
+      contact_id: newContact.contact_id,
+      prefix: newContact.prefix,
+      first_name: newContact.first_name,
+      last_name: newContact.last_name,
+      email: newContact.email,
+      phone_number: newContact.phone_number,
+      address: newContact.address,
+      city: newContact.city,
+      postal_code: newContact.postal_code,
+      country: newContact.country,
+      state: newContact.state,
+      gender: newContact.gender,
+      tag: newContact.tag,
+      unsubscribe_token: newContact.unsubscribe_token,
+      unsubscribed: newContact.unsubscribed,
+      created_at: newContact.created_at,
+      updated_at: newContact.updated_at,
+    };
+
+    // Update website contacts JSONB column (append new contact)
+    const updateJsonQuery = `
+      UPDATE websites
+      SET contacts = 
+        CASE 
+          WHEN contacts IS NULL THEN jsonb_build_array($1::jsonb)
+          ELSE contacts || $1::jsonb
+        END,
+        updated_at = NOW()
+      WHERE website_id = $2;
+    `;
+
+    await client.query(updateJsonQuery, [JSON.stringify(contactData), websiteId]);
 
     res.status(201).json({
-      message: "Contact created successfully.",
-      contact: result.rows[0],
+      message: "Contact created successfully and added to website contacts.",
+      contact: newContact,
     });
   } catch (error) {
     console.error("Error creating contact:", error);
 
     if (error.code === "23505") {
-      // Unique constraint violation
       let field = "field";
-      if (error.detail.includes("email")) field = "Email";
-      if (error.detail.includes("phone_number")) field = "Phone number";
-
+      if (error.detail?.includes("email")) field = "Email";
+      if (error.detail?.includes("phone_number")) field = "Phone number";
       return res.status(400).json({
         error: `${field} is already taken. Please use a different one.`,
       });
@@ -187,6 +273,23 @@ const addViaCSV = async (req, res) => {
   }
 };
 
+//Fetch Website contacts
+const getWebsiteCOntacts = async (req, res) => {
+  const { websiteId } = req.params;
+  try {
+    const query = `SELECT contacts FROM websites WHERE website_id = $1`;
+    const result = await client.query(query, [websiteId]);
+
+    if (result.rows.length === 0)
+      return res.status(404).json({ message: "Website not found" });
+
+    res.json({ contacts: result.rows[0].contacts || [] });
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 
 // Update a contact
 const updateContact = async (req, res) => {
@@ -270,10 +373,53 @@ const deleteContact = async (req, res) => {
   }
 };
 
+// Bulk Delete Contacts
+const deleteMultiple = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { ids } = req.body; // Expecting an array of contact IDs
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Please provide an array of contact IDs to delete." });
+    }
+
+    // Generate parameter placeholders for the contact IDs
+    const placeholders = ids.map((_, index) => `$${index + 2}`).join(", ");
+    const deleteQuery = `
+      DELETE FROM contacts
+      WHERE user_id = $1 AND contact_id IN (${placeholders})
+      RETURNING *;
+    `;
+
+    // The first parameter is userId, followed by the contact IDs
+    const result = await client.query(deleteQuery, [userId, ...ids]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "No matching contacts found for the provided IDs and user.",
+      });
+    }
+
+    res.status(200).json({
+      message: `${result.rows.length} contact(s) deleted successfully.`,
+      deletedContacts: result.rows,
+    });
+  } catch (error) {
+    console.error("Error deleting multiple contacts:", error);
+    res.status(500).json({ error: "Failed to delete multiple contacts." });
+  }
+};
+
+
+
 module.exports = {
   getContacts,
   createContact,
   addViaCSV,
+  getWebsiteCOntacts,
   updateContact,
   deleteContact,
+  deleteMultiple,
 };

@@ -167,6 +167,19 @@ const signIn = async (req, res) => {
   }
 };
 
+//Validate 
+const validateSession = async (req, res) => {
+  try {
+    const token = req.cookies.userMailMktSession;
+    if (!token) return res.status(401).json({ valid: false });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return res.status(200).json({ valid: true, user: decoded });
+  } catch (error) {
+    return res.status(401).json({ valid: false });
+  }
+}
+
 //Sign-Out Users
 const signOut = async (req, res) => {
   try {
@@ -181,4 +194,4 @@ const signOut = async (req, res) => {
   }
 };
 
-module.exports = { signUp, signIn, signOut };
+module.exports = { signUp, signIn, validateSession, signOut };

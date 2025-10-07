@@ -32,6 +32,43 @@ const addWebsite = async (req, res) => {
     }
 };
 
+// Fetch Websites
+const getWebsites = async (req, res) => {
+    const userId = req.userId;
+
+    try {
+        const query = `
+      SELECT website_id, company_name, domain, field, contacts, created_at, updated_at
+      FROM websites
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+    `;
+
+        const result = await client.query(query, [userId]);
+
+        // If user has no websites
+        if (result.rows.length === 0) {
+            return res.status(200).json({
+                success: true,
+                websites: [],
+                message: "No websites found for this user."
+            });
+        }
+
+        // Return websites
+        res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            websites: result.rows,
+        });
+
+    } catch (error) {
+        console.error("Error fetching websites:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch websites." });
+    }
+};
+
+
 // Update Website
 const updateWebsite = async (req, res) => {
     const userId = req.userId;
@@ -98,4 +135,4 @@ const deleteWebsite = async (req, res) => {
     }
 };
 
-module.exports = { addWebsite, updateWebsite, deleteWebsite };
+module.exports = { addWebsite, getWebsites, updateWebsite, deleteWebsite };

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
+import ProtectedRoute from "./components/ProtectedRoute";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import Contact from "./pages/Contact";
@@ -17,6 +18,7 @@ import Contacts from "./pages/All Contacts";
 import SMTPDetails from "./pages/SMTPServerDetails";
 import EmailStatus from "./pages/EmailsStatus";
 import EmailDetails from "./pages/EmailDetails";
+import WebsiteContacts from "./pages/WebsiteContacts";
 
 function App() {
   return (
@@ -24,20 +26,22 @@ function App() {
       <Toaster richColors position="top-right" />
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/home" element={<Home />} />
+
+        <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/sign-up" element={<SignUp />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/sign-in" element={<SignIn />} />
-        <Route path="/add-contact" element={<Contact />} />
-        <Route path="/contacts" element={<Contacts />} />
-        <Route path="/new-email" element={<NewEmail />} />
-        <Route path="/emails" element={<Emails />} />
-        <Route path="/emails/:status" element={<EmailStatus />} />
-        <Route path="/emails/campaign/:campaignId" element={<EmailDetails />} />
-        <Route path="/smtp-configuration" element={<Configurations />} />
-        <Route path="/smtp/servers/:smtpId" element={<SMTPDetails />} />
-        <Route path="/sites" element={<Sites />} />
-        <Route path="/register-smtp" element={<RegisterSMTP />} />
+        <Route path="/add-contact" element={<ProtectedRoute><Contact /></ProtectedRoute>} />
+        <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+        <Route path="/new-email" element={<ProtectedRoute><NewEmail /></ProtectedRoute>} />
+        <Route path="/emails" element={<ProtectedRoute><Emails /></ProtectedRoute>} />
+        <Route path="/emails/:status" element={<ProtectedRoute><EmailStatus /></ProtectedRoute>} />
+        <Route path="/emails/campaign/:campaignId" element={<ProtectedRoute><EmailDetails /></ProtectedRoute>} />
+        <Route path="/smtp-configuration" element={<ProtectedRoute><Configurations /></ProtectedRoute>} />
+        <Route path="/smtp/servers/:smtpId" element={<ProtectedRoute><SMTPDetails /></ProtectedRoute>} />
+        <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
+        <Route path="/contacts/:websiteId" element={<ProtectedRoute><WebsiteContacts /></ProtectedRoute>} />
+        <Route path="/register-smtp" element={<ProtectedRoute><RegisterSMTP /></ProtectedRoute>} />
         <Route path="/unsubscribe" element={<Unsubscribe />} />
         <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
