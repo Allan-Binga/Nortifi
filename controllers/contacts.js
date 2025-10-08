@@ -13,9 +13,11 @@ const s3 = new S3Client({
 
 // Fetch all contacts
 const getContacts = async (req, res) => {
+  const userId = req.userId;
   try {
     const result = await client.query(
-      "SELECT * FROM contacts ORDER BY created_at DESC"
+      "SELECT * FROM contacts WHERE user_id = $1 ORDER BY created_at DESC",
+      [userId]
     );
     res.status(200).json(result.rows);
   } catch (error) {
@@ -180,7 +182,7 @@ const createContact = async (req, res) => {
   }
 };
 
-//IMport via CSV
+// Import via CSV
 const addViaCSV = async (req, res) => {
   try {
     if (!req.file) {
@@ -189,7 +191,7 @@ const addViaCSV = async (req, res) => {
 
     const userId = req.userId;
     const bucket = process.env.AWS_S3_BUCKET;
-    const key = req.file.key; // multer-s3
+    const key = req.file.key;
     const contacts = [];
 
     // Parse mapping
@@ -198,6 +200,17 @@ const addViaCSV = async (req, res) => {
       mapping = JSON.parse(req.body.mapping || "{}");
     } catch (err) {
       return res.status(400).json({ error: "Invalid mapping format" });
+    }
+
+    // First Name and Last Name required
+    const requiredFields = ["first_name", "last_name"];
+    const mappedFields = Object.values(mapping);
+    const missingFields = requiredFields.filter((field) => !mappedFields.includes(field));
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: `Missing required fields: ${missingFields.join(", ")}`,
+      });
     }
 
     // Fetch file from S3
@@ -209,8 +222,8 @@ const addViaCSV = async (req, res) => {
       response.Body.pipe(csv())
         .on("data", (row) => {
           const unsubscribeToken = crypto.randomBytes(20).toString("hex");
-
           const headers = Object.keys(row);
+
           const contact = {
             user_id: userId,
             prefix: null,
@@ -229,18 +242,13 @@ const addViaCSV = async (req, res) => {
             unsubscribe_token: unsubscribeToken,
           };
 
-          // Apply mapping
-          for (const [fieldName, colIndex] of Object.entries(mapping)) {
-            if (fieldName === "skip") continue;
-            const header = headers[colIndex];
-            const value = row[header];
-
-            if (fieldName === "name" && value) {
-              const parts = value.split(" ");
-              contact.first_name = parts[0] || null;
-              contact.last_name = parts.slice(1).join(" ") || null;
-            } else {
-              contact[fieldName] = value || null;
+          // Apply column mapping
+          for (const [colIndex, fieldName] of Object.entries(mapping)) {
+            const index = parseInt(colIndex);
+            if (isNaN(index) || !headers[index]) continue;
+            const value = row[headers[index]];
+            if (fieldName) {
+              contact[fieldName] = value?.trim() || null;
             }
           }
 
@@ -251,11 +259,10 @@ const addViaCSV = async (req, res) => {
             else if (normalized === "mrs") contact.gender = "Female";
           }
 
-          // Validate required fields
+          // Validate required fields (only first_name, last_name)
           const missingFields = [];
           if (!contact.first_name) missingFields.push("First Name");
-          if (!contact.email) missingFields.push("Email");
-          if (!contact.website) missingFields.push("Website");
+          if (!contact.last_name) missingFields.push("Last Name");
 
           if (missingFields.length === 0) {
             contacts.push(contact);
@@ -273,14 +280,14 @@ const addViaCSV = async (req, res) => {
     const insertedContacts = [];
     for (const c of contacts) {
       const insertQuery = `
-  INSERT INTO contacts (
-    user_id, prefix, phone_number, email, first_name, last_name,
-    address, city, postal_code, country, state, gender, website, tag, unsubscribe_token
-  )
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-  ON CONFLICT (email, user_id) DO NOTHING
-  RETURNING *;
-`;
+        INSERT INTO contacts (
+          user_id, prefix, phone_number, email, first_name, last_name,
+          address, city, postal_code, country, state, gender, website, tag, unsubscribe_token
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ON CONFLICT (email, user_id) DO NOTHING
+        RETURNING *;
+      `;
 
       const values = [
         c.user_id,
@@ -306,8 +313,8 @@ const addViaCSV = async (req, res) => {
       }
     }
 
-    // Update websites' JSONB contacts column
-    for (const contact of insertedContacts) {
+    // Update website contacts JSONB (only for those that have website info)
+    for (const contact of insertedContacts.filter((c) => c.website)) {
       const contactData = {
         contact_id: contact.contact_id,
         prefix: contact.prefix,
@@ -380,20 +387,44 @@ const getWebsiteCOntacts = async (req, res) => {
 
 // Update a contact
 const updateContact = async (req, res) => {
+  const userId = req.userId;
   try {
-    const { id } = req.params; // contact_id from route param
+    const { id } = req.params;
     const {
-      phoneNumber,
+      phone_number,
       email,
-      firstName,
-      lastName,
+      first_name,
+      last_name,
       website,
       address,
       country,
       state,
       gender,
+      prefix,
+      city,
+      postal_code,
+      tag,
+      website_id,
     } = req.body;
 
+    // Check existing contact
+    const existing = await client.query(
+      `SELECT * FROM contacts WHERE contact_id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "Contact not found or you do not have permission to update it" });
+    }
+
+    // Check for changes
+    const hasChanges = Object.keys(req.body).some(
+      (key) => req.body[key] !== null && req.body[key] !== existing.rows[0][key]
+    );
+    if (!hasChanges) {
+      return res.status(200).json({ message: "No changes detected", contact: existing.rows[0] });
+    }
+
+    await client.query("BEGIN");
     const result = await client.query(
       `UPDATE contacts
        SET phone_number = COALESCE($1, phone_number),
@@ -405,32 +436,46 @@ const updateContact = async (req, res) => {
            country = COALESCE($7, country),
            state = COALESCE($8, state),
            gender = COALESCE($9, gender),
+           prefix = COALESCE($10, prefix),
+           city = COALESCE($11, city),
+           postal_code = COALESCE($12, postal_code),
+           tag = COALESCE($13, tag),
+           website_id = COALESCE($14, website_id),
            updated_at = NOW()
-       WHERE contact_id = $10
+       WHERE contact_id = $15 AND user_id = $16
        RETURNING *`,
       [
-        phoneNumber,
+        phone_number,
         email,
-        firstName,
-        lastName,
+        first_name,
+        last_name,
         website,
         address,
         country,
         state,
         gender,
+        prefix,
+        city,
+        postal_code,
+        tag,
+        website_id,
         id,
+        userId,
       ]
     );
+    await client.query("COMMIT");
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Contact not found" });
+      return res.status(404).json({ error: "Contact not found or you do not have permission to update it" });
     }
+
 
     res.status(200).json({
       message: "Contact updated successfully.",
       contact: result.rows[0],
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Error updating contact:", error);
     res.status(500).json({ error: "Failed to update contact" });
   }

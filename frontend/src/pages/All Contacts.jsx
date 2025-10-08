@@ -1,4 +1,5 @@
 import Sidebar from "../components/Sidebar";
+import Spinner from "../components/Spinner";
 import Label from "../components/Label";
 import { backend } from "../server";
 import axios from "axios";
@@ -6,29 +7,39 @@ import { useNavigate } from "react-router-dom";
 import { Edit2, Trash2, Loader2, ArrowRight, ChevronDown, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { notify } from "../utils/toast";
+import { fetchWebsites } from "../utils/websites";
+import PhoneInputWithCountrySelect from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+import "../components/CustomPhoneInput.css";
 
 function Contacts() {
     const navigate = useNavigate();
+    const [websites, setWebsites] = useState([]);
+    const [selectedWebsite, setSelectedWebsite] = useState("");
+    const [websiteDropdownOpen, setWebsiteDropdownOpen] = useState(false);
+    const [prefixDropdownOpen, setPrefixDropdownOpen] = useState(false);
+    const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
     const [contacts, setContacts] = useState([]);
     const [filteredContacts, setFilteredContacts] = useState([]);
     const [formData, setFormData] = useState({
+        prefix: "",
         firstName: "",
         lastName: "",
         email: "",
         phoneNumber: "",
-        countryCode: "+254",
-        website: "",
         address: "",
         country: "",
         state: "",
-        gender: "",
+        tag: "",
+        websiteId: "",
+        city: "",
+        postalCode: "",
     });
     const [errors, setErrors] = useState({});
     const [editingContact, setEditingContact] = useState(null);
     const [loading, setLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isGenderOpen, setIsGenderOpen] = useState(false);
-    const [isCodeOpen, setIsCodeOpen] = useState(false);
+    const [showSpinner, setShowSpinner] = useState(false);
     const [selectedContacts, setSelectedContacts] = useState([]);
     const [deleting, setDeleting] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -37,17 +48,12 @@ function Contacts() {
     const [countryFilter, setCountryFilter] = useState("");
     const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
 
-    const countryCodes = [
-        { code: "+1", country: "US/Canada", flag: "🇺🇸" },
-        { code: "+44", country: "UK", flag: "🇬🇧" },
-        { code: "+254", country: "Kenya", flag: "🇰🇪" },
-        { code: "+234", country: "Nigeria", flag: "🇳🇬" },
-        { code: "+27", country: "South Africa", flag: "🇿🇦" },
-        { code: "+91", country: "India", flag: "🇮🇳" },
-        { code: "+86", country: "China", flag: "🇨🇳" },
-        { code: "+81", country: "Japan", flag: "🇯🇵" },
-        { code: "+49", country: "Germany", flag: "🇩🇪" },
-        { code: "+33", country: "France", flag: "🇫🇷" },
+    // Sample country list (same as CreateContactModal)
+    const countries = [
+        { code: "KE", name: "Kenya" },
+        { code: "US", name: "United States" },
+        { code: "GB", name: "United Kingdom" },
+        { code: "CA", name: "Canada" },
     ];
 
     useEffect(() => {
@@ -69,11 +75,28 @@ function Contacts() {
         fetchContacts();
     }, []);
 
+    // Fetch websites
+    useEffect(() => {
+        const loadWebsites = async () => {
+            try {
+                const data = await fetchWebsites();
+                const websitesArray = data.websites || [];
+                setWebsites(websitesArray);
+                if (websitesArray.length > 0) {
+                    setSelectedWebsite(websitesArray[0].website_id);
+                    setFormData((prev) => ({ ...prev, websiteId: websitesArray[0].website_id }));
+                }
+            } catch (error) {
+                console.error("Error fetching Websites:", error);
+            }
+        };
+        loadWebsites();
+    }, []);
+
     // Filter and sort contacts
     useEffect(() => {
         let result = [...contacts];
 
-        // Search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             result = result.filter(
@@ -84,22 +107,18 @@ function Contacts() {
             );
         }
 
-        // Gender filter
         if (genderFilter) {
             result = result.filter((contact) => contact.gender === genderFilter);
         }
 
-        // Tag filter
         if (tagFilter) {
             result = result.filter((contact) => contact.tag === tagFilter);
         }
 
-        // Country filter
         if (countryFilter) {
             result = result.filter((contact) => contact.country === countryFilter);
         }
 
-        // Sorting
         if (sortConfig.key) {
             result.sort((a, b) => {
                 const aValue = a[sortConfig.key] || "";
@@ -145,62 +164,96 @@ function Contacts() {
 
     const handleEdit = (contact) => {
         setEditingContact(contact);
-        let countryCode = "+254";
-        let phoneNumber = "";
-
-        if (contact.phone_number) {
-            const foundCode = countryCodes.find((cc) =>
-                contact.phone_number.startsWith(cc.code)
-            );
-            if (foundCode) {
-                countryCode = foundCode.code;
-                phoneNumber = contact.phone_number.substring(foundCode.code.length);
-            } else {
-                phoneNumber = contact.phone_number;
-            }
-        }
-
         setFormData({
+            prefix: contact.prefix || "",
             firstName: contact.first_name || "",
             lastName: contact.last_name || "",
             email: contact.email || "",
-            phoneNumber: phoneNumber,
-            countryCode: countryCode,
-            website: contact.website || "",
+            phoneNumber: contact.phone_number || "",
             address: contact.address || "",
             country: contact.country || "",
             state: contact.state || "",
-            gender: contact.gender || "",
+            tag: contact.tag || "",
+            websiteId: contact.website_id || "",
+            city: contact.city || "",
+            postalCode: contact.postal_code || "",
         });
+        setSelectedWebsite(contact.website_id || "");
         setErrors({});
+    };
+
+    const validateEmail = (email) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    const validateName = (name) => {
+        const nameRegex = /^[a-zA-Z\s]{2,50}$/;
+        return nameRegex.test(name.trim());
+    };
+
+    const validatePhoneNumber = (phoneNumber) => {
+        if (!phoneNumber) return true; // Allow empty phone number
+        const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+        return /^\+\d{7,15}$/.test(cleanPhone);
     };
 
     const validateForm = () => {
         const newErrors = {};
 
-        const nameRegex = /^[a-zA-Z\s]{2,50}$/;
-        if (!nameRegex.test(formData.firstName.trim())) {
-            newErrors.firstName = "First name must be 2-50 characters and contain only letters and spaces";
-        }
-        if (!nameRegex.test(formData.lastName.trim())) {
-            newErrors.lastName = "Last name must be 2-50 characters and contain only letters and spaces";
+        if (!validateName(formData.firstName)) {
+            newErrors.firstName = "Name must be 2-50 characters and contain only letters and spaces";
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.email)) {
+        if (!validateName(formData.lastName)) {
+            newErrors.lastName = "Name must be 2-50 characters and contain only letters and spaces";
+        }
+
+        // Optional fields, only validate if provided
+        if (formData.email && !validateEmail(formData.email)) {
             newErrors.email = "Please enter a valid email address";
         }
 
-        if (formData.phoneNumber) {
-            const cleanPhone = formData.phoneNumber.replace(/[\s\-\(\)]/g, "");
-            const phoneRegex = /^\d{7,15}$/;
-            if (!phoneRegex.test(cleanPhone)) {
-                newErrors.phoneNumber = "Phone number should contain only digits (7-15 characters)";
-            }
+        if (formData.phoneNumber && !validatePhoneNumber(formData.phoneNumber)) {
+            newErrors.phoneNumber = "Phone number should contain only digits (7-15 characters including country code)";
         }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors((prev) => ({ ...prev, [name]: "" }));
+        }
+    };
+
+    const handlePhoneChange = (value) => {
+        setFormData((prev) => ({ ...prev, phoneNumber: value || "" }));
+        if (errors.phoneNumber) {
+            setErrors((prev) => ({ ...prev, phoneNumber: "" }));
+        }
+    };
+
+    const handleSelectWebsite = (websiteId) => {
+        setSelectedWebsite(websiteId);
+        setFormData((prev) => ({ ...prev, websiteId }));
+        setWebsiteDropdownOpen(false);
+        if (errors.websiteId) {
+            setErrors((prev) => ({ ...prev, websiteId: "" }));
+        }
+    };
+
+    const handleSelectPrefix = (prefix) => {
+        setFormData((prev) => ({ ...prev, prefix }));
+        setPrefixDropdownOpen(false);
+    };
+
+    const handleSelectCountry = (country) => {
+        setFormData((prev) => ({ ...prev, country }));
+        setCountryDropdownOpen(false);
     };
 
     const handleUpdate = async (e) => {
@@ -214,16 +267,20 @@ function Contacts() {
         setIsSubmitting(true);
         try {
             const submitData = {
+                prefix: formData.prefix,
                 first_name: formData.firstName,
                 last_name: formData.lastName,
                 email: formData.email,
-                phone_number: formData.phoneNumber ? `${formData.countryCode}${formData.phoneNumber}` : "",
-                website: formData.website,
+                phone_number: formData.phoneNumber,
                 address: formData.address,
                 country: formData.country,
                 state: formData.state,
-                gender: formData.gender,
+                tag: formData.tag,
+                website_id: selectedWebsite || null,
+                city: formData.city,
+                postal_code: formData.postalCode,
             };
+
 
             const response = await axios.patch(
                 `${backend}/contacts/update-contact/${editingContact.contact_id}`,
@@ -231,33 +288,27 @@ function Contacts() {
                 { withCredentials: true }
             );
 
-            setContacts((prev) =>
-                prev.map((c) =>
-                    c.contact_id === editingContact.contact_id ? { ...c, ...response.data } : c
-                )
-            );
-            setFilteredContacts((prev) =>
-                prev.map((c) =>
-                    c.contact_id === editingContact.contact_id ? { ...c, ...response.data } : c
-                )
-            );
-            notify.success("Contact updated successfully");
-            setEditingContact(null);
-            setFormData({
-                firstName: "",
-                lastName: "",
-                email: "",
-                phoneNumber: "",
-                countryCode: "+254",
-                website: "",
-                address: "",
-                country: "",
-                state: "",
-                gender: "",
-            });
+
+            if (response.data.message === "No changes detected") {
+                notify.info("No changes were made to the contact");
+            } else {
+                // Re-fetch contacts to ensure UI consistency
+                const updatedContacts = await axios.get(`${backend}/contacts/all-contacts`, {
+                    withCredentials: true,
+                });
+                setContacts(updatedContacts.data);
+                setFilteredContacts(updatedContacts.data);
+                notify.success("Contact updated successfully");
+            }
+
+            setShowSpinner(true);
+            setTimeout(() => {
+                setEditingContact(null);
+                setShowSpinner(false);
+            }, 2000);
         } catch (error) {
             notify.error(error.response?.data?.error || "Failed to update contact");
-            console.error("Error updating contact:", error);
+            console.error("Error updating contact:", error.response?.data || error);
         } finally {
             setIsSubmitting(false);
         }
@@ -322,18 +373,15 @@ function Contacts() {
         if (sortConfig.key !== key) return null;
         return (
             <ChevronDown
-                className={`w-4 h-4 inline ml-1 transform transition-transform ${sortConfig.direction === "asc" ? "rotate-0" : "rotate-180"
-                    }`}
+                className={`w-4 h-4 inline ml-1 transform transition-transform ${sortConfig.direction === "asc" ? "rotate-0" : "rotate-180"}`}
             />
         );
     };
 
-    // Get unique values for filters
     const uniqueGenders = [...new Set(contacts.map((c) => c.gender).filter(Boolean))];
     const uniqueTags = [...new Set(contacts.map((c) => c.tag).filter(Boolean))];
     const uniqueCountries = [...new Set(contacts.map((c) => c.country).filter(Boolean))];
 
-    // Clear all filters
     const handleClearFilters = () => {
         setSearchQuery("");
         setGenderFilter("");
@@ -342,7 +390,7 @@ function Contacts() {
         setSortConfig({ key: null, direction: null });
     };
 
-    const inputStyles = `w-full px-4 py-2 rounded-sm border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 text-base font-medium placeholder-gray-400 placeholder:text-xs transition duration-200`;
+    const inputStyles = `w-full px-4 py-3 rounded-xs border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 bg-white text-base font-medium placeholder-gray-400 transition duration-200`;
 
     return (
         <div className="flex h-screen bg-blue-50">
@@ -350,10 +398,7 @@ function Contacts() {
             <Sidebar />
             <div className="flex-1 flex flex-col">
                 <Label />
-                <div
-                    className={`flex-1 overflow-y-auto p-6 transition-all duration-300 mt-20 ${editingContact ? "blur-sm" : ""
-                        }`}
-                >
+                <div className="flex-1 overflow-y-auto p-6 transition-all duration-300 mt-20">
                     {/* Contacts Table */}
                     <div className="max-w-8xl mx-auto px-6">
                         <div className="bg-white rounded-sm border border-blue-200">
@@ -379,74 +424,115 @@ function Contacts() {
                             <div className="p-8">
                                 {/* Search and Filters */}
                                 <div className="mb-6 space-y-4">
-                                    <div className="flex flex-col sm:flex-row gap-4">
-                                        {/* Search Bar */}
-                                        <div className="flex-1">
-                                            <input
-                                                type="text"
-                                                placeholder="Search by name or email..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                className={inputStyles}
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Search by name or email..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className={`${inputStyles} pl-10`}
+                                        />
+                                        <svg
+                                            className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                                             />
-                                        </div>
+                                        </svg>
+                                    </div>
 
-                                        {/* Filters */}
-                                        <div className="flex gap-4 flex-wrap">
-                                            {/* Gender Filter */}
-                                            <select
-                                                value={genderFilter}
-                                                onChange={(e) => setGenderFilter(e.target.value)}
-                                                className={`${inputStyles} text-gray-700 bg-white`}
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <span className="text-sm font-medium text-gray-600">Filter by:</span>
+                                        <select
+                                            value={genderFilter}
+                                            onChange={(e) => setGenderFilter(e.target.value)}
+                                            className={`${inputStyles} text-gray-700 bg-white min-w-[140px]`}
+                                        >
+                                            <option value="">All Genders</option>
+                                            {uniqueGenders.map((gender) => (
+                                                <option key={gender} value={gender}>
+                                                    {gender}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={tagFilter}
+                                            onChange={(e) => setTagFilter(e.target.value)}
+                                            className={`${inputStyles} text-gray-700 bg-white min-w-[140px]`}
+                                        >
+                                            <option value="">All Tags</option>
+                                            {uniqueTags.map((tag) => (
+                                                <option key={tag} value={tag}>
+                                                    {tag}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={countryFilter}
+                                            onChange={(e) => setCountryFilter(e.target.value)}
+                                            className={`${inputStyles} text-gray-700 bg-white min-w-[140px]`}
+                                        >
+                                            <option value="">All Countries</option>
+                                            {uniqueCountries.map((country) => (
+                                                <option key={country} value={country}>
+                                                    {country}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {(searchQuery || genderFilter || tagFilter || countryFilter || sortConfig.key) && (
+                                            <button
+                                                onClick={handleClearFilters}
+                                                className="ml-auto px-4 py-2 rounded-sm bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 flex items-center gap-2 text-sm font-medium transition-colors"
                                             >
-                                                <option value="">All Genders</option>
-                                                {uniqueGenders.map((gender) => (
-                                                    <option key={gender} value={gender}>
-                                                        {gender}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                <X className="w-4 h-4" />
+                                                Clear All
+                                            </button>
+                                        )}
+                                    </div>
 
-                                            {/* Tag Filter */}
-                                            <select
-                                                value={tagFilter}
-                                                onChange={(e) => setTagFilter(e.target.value)}
-                                                className={`${inputStyles} text-gray-700 bg-white`}
-                                            >
-                                                <option value="">All Tags</option>
-                                                {uniqueTags.map((tag) => (
-                                                    <option key={tag} value={tag}>
-                                                        {tag}
-                                                    </option>
-                                                ))}
-                                            </select>
-
-                                            {/* Country Filter */}
-                                            <select
-                                                value={countryFilter}
-                                                onChange={(e) => setCountryFilter(e.target.value)}
-                                                className={`${inputStyles} text-gray-700 bg-white`}
-                                            >
-                                                <option value="">All Countries</option>
-                                                {uniqueCountries.map((country) => (
-                                                    <option key={country} value={country}>
-                                                        {country}
-                                                    </option>
-                                                ))}
-                                            </select>
-
-                                            {/* Clear Filters */}
-                                            {(searchQuery || genderFilter || tagFilter || countryFilter || sortConfig.key) && (
-                                                <button
-                                                    onClick={handleClearFilters}
-                                                    className="px-4 py-2 rounded-sm bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 flex items-center gap-2"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                    Clear Filters
-                                                </button>
+                                    {(searchQuery || genderFilter || tagFilter || countryFilter) && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm text-gray-600">Active filters:</span>
+                                            {searchQuery && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700">
+                                                    Search: "{searchQuery}"
+                                                    <button onClick={() => setSearchQuery("")} className="hover:text-blue-900">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </span>
+                                            )}
+                                            {genderFilter && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-700">
+                                                    Gender: {genderFilter}
+                                                    <button onClick={() => setGenderFilter("")} className="hover:text-purple-900">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </span>
+                                            )}
+                                            {tagFilter && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
+                                                    Tag: {tagFilter}
+                                                    <button onClick={() => setTagFilter("")} className="hover:text-green-900">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </span>
+                                            )}
+                                            {countryFilter && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-orange-100 text-orange-700">
+                                                    Country: {countryFilter}
+                                                    <button onClick={() => setCountryFilter("")} className="hover:text-orange-900">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </span>
                                             )}
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
 
                                 {loading ? (
@@ -469,11 +555,11 @@ function Contacts() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="max-h-[500px] overflow-y-auto">
+                                    <div className="max-h-[500px] overflow-y-auto border border-gray-200 rounded-sm">
                                         <table className="w-full text-sm text-slate-700 min-w-[1100px]">
                                             <thead>
                                                 <tr className="bg-blue-50 sticky top-0">
-                                                    <th className="px-4 py-2">
+                                                    <th className="px-4 py-3 border-b border-gray-200">
                                                         <div className="flex items-center gap-2">
                                                             <input
                                                                 type="checkbox"
@@ -488,46 +574,68 @@ function Contacts() {
                                                         </div>
                                                     </th>
                                                     <th
-                                                        className="px-4 py-2 text-left font-semibold text-slate-700 cursor-pointer"
+                                                        className="px-4 py-3 text-left font-semibold text-slate-700 cursor-pointer border-b border-gray-200 hover:bg-blue-100 transition-colors"
                                                         onClick={() => handleSort("first_name")}
                                                     >
-                                                        First Name {getSortIcon("first_name")}
+                                                        <div className="flex items-center gap-1">
+                                                            First Name {getSortIcon("first_name")}
+                                                        </div>
                                                     </th>
                                                     <th
-                                                        className="px-4 py-2 text-left font-semibold text-slate-700 cursor-pointer"
+                                                        className="px-4 py-3 text-left font-semibold text-slate-700 cursor-pointer border-b border-gray-200 hover:bg-blue-100 transition-colors"
                                                         onClick={() => handleSort("last_name")}
                                                     >
-                                                        Last Name {getSortIcon("last_name")}
+                                                        <div className="flex items-center gap-1">
+                                                            Last Name {getSortIcon("last_name")}
+                                                        </div>
                                                     </th>
                                                     <th
-                                                        className="px-4 py-2 text-left font-semibold text-slate-700 cursor-pointer"
+                                                        className="px-4 py-3 text-left font-semibold text-slate-700 cursor-pointer border-b border-gray-200 hover:bg-blue-100 transition-colors"
                                                         onClick={() => handleSort("email")}
                                                     >
-                                                        Email {getSortIcon("email")}
+                                                        <div className="flex items-center gap-1">
+                                                            Email {getSortIcon("email")}
+                                                        </div>
                                                     </th>
-                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Phone</th>
-                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Website</th>
-                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Gender</th>
-                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Address</th>
-                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Country</th>
-                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">State</th>
+                                                    <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-gray-200">
+                                                        Phone
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-gray-200">
+                                                        Website
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-gray-200">
+                                                        Gender
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-gray-200">
+                                                        Address
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-gray-200">
+                                                        Country
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-gray-200">
+                                                        State
+                                                    </th>
                                                     <th
-                                                        className="px-4 py-2 text-left font-semibold text-slate-700 cursor-pointer"
+                                                        className="px-4 py-3 text-left font-semibold text-slate-700 cursor-pointer border-b border-gray-200 hover:bg-blue-100 transition-colors"
                                                         onClick={() => handleSort("created_at")}
                                                     >
-                                                        Created {getSortIcon("created_at")}
+                                                        <div className="flex items-center gap-1">
+                                                            Created {getSortIcon("created_at")}
+                                                        </div>
                                                     </th>
-                                                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Actions</th>
+                                                    <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-gray-200">
+                                                        Actions
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {filteredContacts.map((contact) => (
                                                     <tr
                                                         key={contact.contact_id}
-                                                        className={`border-t border-slate-200 hover:bg-slate-50 transition duration-200 ${selectedContacts.includes(contact.contact_id) ? "bg-blue-50" : ""
+                                                        className={`border-b border-slate-100 hover:bg-slate-50 transition duration-200 ${selectedContacts.includes(contact.contact_id) ? "bg-blue-50" : ""
                                                             }`}
                                                     >
-                                                        <td className="px-4 py-2">
+                                                        <td className="px-4 py-3">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={selectedContacts.includes(contact.contact_id)}
@@ -535,9 +643,9 @@ function Contacts() {
                                                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                                                             />
                                                         </td>
-                                                        <td className="px-4 py-2">{contact.first_name || "-"}</td>
-                                                        <td className="px-4 py-2">{contact.last_name || "-"}</td>
-                                                        <td className="px-4 py-2">
+                                                        <td className="px-4 py-3">{contact.first_name || "-"}</td>
+                                                        <td className="px-4 py-3">{contact.last_name || "-"}</td>
+                                                        <td className="px-4 py-3">
                                                             <a
                                                                 href={`mailto:${contact.email}`}
                                                                 className="text-blue-600 hover:text-blue-700 hover:underline"
@@ -545,7 +653,7 @@ function Contacts() {
                                                                 {contact.email}
                                                             </a>
                                                         </td>
-                                                        <td className="px-4 py-2">
+                                                        <td className="px-4 py-3">
                                                             {contact.phone_number ? (
                                                                 <a
                                                                     href={`tel:${contact.phone_number}`}
@@ -557,26 +665,25 @@ function Contacts() {
                                                                 <span className="text-slate-400">-</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-2">
-                                                            {contact.website ? (
+                                                        <td className="px-4 py-3">
+                                                            {contact.website_id ? (
                                                                 <a
-                                                                    href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
+
+
                                                                     className="text-teal-600 hover:text-teal-800 hover:underline"
                                                                 >
-                                                                    {contact.website}
+                                                                    {contact.website_id}
                                                                 </a>
                                                             ) : (
                                                                 <span className="text-slate-400">-</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-2">{contact.gender || "-"}</td>
-                                                        <td className="px-4 py-2">{contact.address || "-"}</td>
-                                                        <td className="px-4 py-2">{contact.country || "-"}</td>
-                                                        <td className="px-4 py-2">{contact.state || "-"}</td>
-                                                        <td className="px-4 py-2">{formatDate(contact.created_at)}</td>
-                                                        <td className="px-4 py-2">
+                                                        <td className="px-4 py-3">{contact.gender || "-"}</td>
+                                                        <td className="px-4 py-3">{contact.address || "-"}</td>
+                                                        <td className="px-4 py-3">{contact.country || "-"}</td>
+                                                        <td className="px-4 py-3">{contact.state || "-"}</td>
+                                                        <td className="px-4 py-3">{formatDate(contact.created_at)}</td>
+                                                        <td className="px-4 py-3">
                                                             <div className="flex space-x-2">
                                                                 <button
                                                                     onClick={() => handleEdit(contact)}
@@ -605,250 +712,289 @@ function Contacts() {
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Modal for Updating */}
-                {editingContact && (
-                    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-white-50 bg-opacity-50">
-                        <div className="bg-white rounded-sm border border-blue-200 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-                            <div className="bg-blue-100 px-6 py-3 rounded-t-sm flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-[#061338]">Update Contact</h2>
-                                <button
-                                    onClick={() => setEditingContact(null)}
-                                    className="text-gray-500 hover:text-gray-700"
-                                >
-                                    <svg
-                                        className="w-5 h-5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M6 18L18 6M6 6l12 12"
-                                        />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="p-6">
-                                <form onSubmit={handleUpdate} className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                First Name <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={formData.firstName}
-                                                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                                className={`${inputStyles} ${errors.firstName ? "border-red-300 focus:ring-red-500" : ""}`}
-                                                placeholder="e.g., John"
-                                                required
-                                            />
-                                            {errors.firstName && (
-                                                <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Last Name <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={formData.lastName}
-                                                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                                className={`${inputStyles} ${errors.lastName ? "border-red-300 focus:ring-red-500" : ""}`}
-                                                placeholder="e.g., Doe"
-                                                required
-                                            />
-                                            {errors.lastName && (
-                                                <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Email <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className={`${inputStyles} ${errors.email ? "border-red-300 focus:ring-red-500" : ""}`}
-                                            placeholder="e.g., john.doe@example.com"
-                                            required
-                                        />
-                                        {errors.email && (
-                                            <p className="mt-1 text-xs text-red-500">{errors.email}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Phone Number
-                                        </label>
-                                        <div className="flex">
-                                            <div className="relative w-1/3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsCodeOpen(!isCodeOpen)}
-                                                    className={`${inputStyles} rounded-l-sm flex justify-between items-center`}
-                                                >
-                                                    {formData.countryCode
-                                                        ? countryCodes.find((c) => c.code === formData.countryCode)
-                                                            ?.flag +
-                                                        " " +
-                                                        formData.countryCode
-                                                        : "Code"}
-                                                    <ChevronDown
-                                                        className={`w-5 h-5 text-gray-500 transform transition-transform ${isCodeOpen ? "rotate-180" : "rotate-0"
-                                                            }`}
-                                                    />
-                                                </button>
-                                                {isCodeOpen && (
-                                                    <ul className="absolute mt-2 w-full rounded-sm bg-white border border-blue-100 z-10 max-h-40 overflow-y-auto animate-fadeIn">
-                                                        {countryCodes.map((cc) => (
-                                                            <li
-                                                                key={cc.code}
-                                                                onClick={() => {
-                                                                    setFormData({ ...formData, countryCode: cc.code });
-                                                                    setIsCodeOpen(false);
-                                                                }}
-                                                                className={`px-4 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${formData.countryCode === cc.code
-                                                                        ? "bg-blue-100 text-blue-700"
-                                                                        : ""
-                                                                    }`}
-                                                            >
-                                                                {cc.flag} {cc.code}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={formData.phoneNumber}
-                                                onChange={(e) =>
-                                                    setFormData({ ...formData, phoneNumber: e.target.value })
-                                                }
-                                                className={`${inputStyles} w-2/3 rounded-r-sm ${errors.phoneNumber ? "border-red-300 focus:ring-red-500" : ""
-                                                    }`}
-                                                placeholder="e.g., 1234567890"
-                                            />
-                                        </div>
-                                        {errors.phoneNumber && (
-                                            <p className="mt-1 text-xs text-red-500">{errors.phoneNumber}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Website
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={formData.website}
-                                            onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                                            className={inputStyles}
-                                            placeholder="e.g., https://example.com"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Address
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={formData.address}
-                                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                            className={inputStyles}
-                                            placeholder="e.g., 123 Main St"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Country
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={formData.country}
-                                                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                                className={inputStyles}
-                                                placeholder="e.g., United States"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                State
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={formData.state}
-                                                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                                                className={inputStyles}
-                                                placeholder="e.g., California"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Gender
-                                        </label>
-                                        <div className="relative">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsGenderOpen(!isGenderOpen)}
-                                                className={`${inputStyles} flex justify-between items-center`}
-                                            >
-                                                {formData.gender || "Select gender"}
-                                                <ChevronDown
-                                                    className={`w-5 h-5 text-gray-500 transform transition-transform ${isGenderOpen ? "rotate-180" : "rotate-0"
-                                                        }`}
-                                                />
-                                            </button>
-                                            {isGenderOpen && (
-                                                <ul className="absolute mt-2 w-full rounded-sm bg-white border border-blue-100 z-10 animate-fadeIn">
-                                                    {["Male", "Female", "Other"].map((option) => (
-                                                        <li
-                                                            key={option}
-                                                            onClick={() => {
-                                                                setFormData({ ...formData, gender: option });
-                                                                setIsGenderOpen(false);
-                                                            }}
-                                                            className={`px-4 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${formData.gender === option ? "bg-blue-100 text-blue-700" : ""
-                                                                }`}
-                                                        >
-                                                            {option}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className={`group w-full bg-blue-600 font-semibold text-white px-6 py-2 rounded-sm flex justify-center items-center space-x-2 transition-all ${isSubmitting ? "opacity-70 cursor-wait" : "hover:bg-blue-700 cursor-pointer"
-                                            }`}
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                <span>Updating...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span>Update Contact</span>
-                                                <ArrowRight className="w-4 h-4 opacity-0 -rotate-45 transform transition-all duration-300 group-hover:opacity-100 group-hover:rotate-0" />
-                                            </>
-                                        )}
+                    {/* Modal for Updating */}
+                    {editingContact && (
+                        <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+                            {/* Background overlay without blur */}
+                            <div className="absolute inset-0 bg-black/50"></div>
+                            {/* Modal content */}
+                            <div className="relative bg-white rounded-xs border border-blue-200 w-full max-w-4xl mx-auto max-h-[90vh] overflow-y-auto">
+                                <div className="bg-blue-100 px-6 py-3 rounded-t-xs flex justify-between items-center">
+                                    <h2 className="text-lg font-bold text-[#061338]">Update Contact</h2>
+                                    <button onClick={() => setEditingContact(null)} className="text-gray-500 hover:text-gray-700">
+                                        <X className="w-5 h-5" />
                                     </button>
-                                </form>
+                                </div>
+                                <div className="p-8">
+                                    <form onSubmit={handleUpdate} className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Website Selector */}
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    Select Website
+                                                </label>
+                                                <div className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setWebsiteDropdownOpen(!websiteDropdownOpen)}
+                                                        className={`${inputStyles} flex justify-between items-center text-left`}
+                                                    >
+                                                        {websites.find((w) => w.website_id === selectedWebsite)?.company_name ||
+                                                            websites.find((w) => w.website_id === selectedWebsite)?.domain ||
+                                                            "Select Website"}
+                                                        <ChevronDown
+                                                            className={`text-slate-500 transition-transform duration-300 ${websiteDropdownOpen ? "rotate-180" : "rotate-0"
+                                                                }`}
+                                                            size={18}
+                                                        />
+                                                    </button>
+                                                    {websiteDropdownOpen && (
+                                                        <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg max-h-60 overflow-y-auto">
+                                                            {websites.length > 0 ? (
+                                                                websites.map((website) => (
+                                                                    <div
+                                                                        key={website.website_id}
+                                                                        onClick={() => handleSelectWebsite(website.website_id)}
+                                                                        className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                                                                    >
+                                                                        {website.company_name || website.domain}
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <div className="px-4 py-2 text-base text-gray-500">No websites available</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {errors.websiteId && <p className="mt-1 text-xs text-red-500">{errors.websiteId}</p>}
+                                            </div>
+
+                                            {/* Prefix Dropdown */}
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-700 mb-2">Prefix</label>
+                                                <div className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPrefixDropdownOpen(!prefixDropdownOpen)}
+                                                        className={`${inputStyles} flex justify-between items-center text-left`}
+                                                    >
+                                                        {formData.prefix || "Select Prefix"}
+                                                        <ChevronDown
+                                                            className={`text-slate-500 transition-transform duration-300 ${prefixDropdownOpen ? "rotate-180" : "rotate-0"
+                                                                }`}
+                                                            size={18}
+                                                        />
+                                                    </button>
+                                                    {prefixDropdownOpen && (
+                                                        <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg">
+                                                            {["Mr", "Mrs"].map((prefix) => (
+                                                                <div
+                                                                    key={prefix}
+                                                                    onClick={() => handleSelectPrefix(prefix)}
+                                                                    className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                                                                >
+                                                                    {prefix}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* First Name */}
+                                            <div>
+                                                <label htmlFor="firstName" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    First Name <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="firstName"
+                                                    name="firstName"
+                                                    value={formData.firstName}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    className={`${inputStyles} ${errors.firstName ? "border-red-300 focus:ring-red-500" : ""}`}
+                                                    placeholder="Enter first name"
+                                                />
+                                                {errors.firstName && <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>}
+                                            </div>
+
+                                            {/* Last Name */}
+                                            <div>
+                                                <label htmlFor="lastName" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    Last Name <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="lastName"
+                                                    name="lastName"
+                                                    value={formData.lastName}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    className={`${inputStyles} ${errors.lastName ? "border-red-300 focus:ring-red-500" : ""}`}
+                                                    placeholder="Enter last name"
+                                                />
+                                                {errors.lastName && <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>}
+                                            </div>
+
+                                            {/* Email */}
+                                            <div>
+                                                <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    Email
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    id="email"
+                                                    name="email"
+                                                    value={formData.email}
+                                                    onChange={handleInputChange}
+                                                    className={`${inputStyles} ${errors.email ? "border-red-300 focus:ring-red-500" : ""}`}
+                                                    placeholder="Enter email address"
+                                                />
+                                                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+                                            </div>
+
+                                            {/* Phone Number */}
+                                            <div>
+                                                <label htmlFor="phoneNumber" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    Phone Number
+                                                </label>
+                                                <PhoneInputWithCountrySelect
+                                                    international
+                                                    countryCallingCodeEditable={false}
+                                                    defaultCountry="KE"
+                                                    value={formData.phoneNumber}
+                                                    onChange={handlePhoneChange}
+                                                    className={`${inputStyles} ${errors.phoneNumber ? "border-red-300 focus-within:ring-red-500" : ""}`}
+                                                    placeholder="Enter phone number"
+                                                />
+                                                {errors.phoneNumber && <p className="mt-1 text-xs text-red-500">{errors.phoneNumber}</p>}
+                                            </div>
+
+                                            {/* Address */}
+                                            <div>
+                                                <label htmlFor="address" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    Address
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="address"
+                                                    name="address"
+                                                    value={formData.address}
+                                                    onChange={handleInputChange}
+                                                    className={inputStyles}
+                                                    placeholder="123 Main Street, Apt 4B"
+                                                />
+                                            </div>
+
+                                            {/* State */}
+                                            <div>
+                                                <label htmlFor="state" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    State / Province
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="state"
+                                                    name="state"
+                                                    value={formData.state}
+                                                    onChange={handleInputChange}
+                                                    className={inputStyles}
+                                                    placeholder="Nairobi / California / Ontario"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                            {/* Country Dropdown */}
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-700 mb-2">Country</label>
+                                                <div className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
+                                                        className={`${inputStyles} flex justify-between items-center text-left`}
+                                                    >
+                                                        {formData.country || "Select Country"}
+                                                        <ChevronDown
+                                                            className={`text-slate-500 transition-transform duration-300 ${countryDropdownOpen ? "rotate-180" : "rotate-0"
+                                                                }`}
+                                                            size={18}
+                                                        />
+                                                    </button>
+                                                    {countryDropdownOpen && (
+                                                        <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg max-h-60 overflow-y-auto">
+                                                            {countries.map((country) => (
+                                                                <div
+                                                                    key={country.code}
+                                                                    onClick={() => handleSelectCountry(country.name)}
+                                                                    className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                                                                >
+                                                                    {country.name}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* City */}
+                                            <div>
+                                                <label htmlFor="city" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    City
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="city"
+                                                    name="city"
+                                                    value={formData.city}
+                                                    onChange={handleInputChange}
+                                                    className={inputStyles}
+                                                    placeholder="Enter city"
+                                                />
+                                            </div>
+
+                                            {/* Tag */}
+                                            <div>
+                                                <label htmlFor="tag" className="block text-xs font-semibold text-slate-700 mb-2">
+                                                    Tag
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="tag"
+                                                    name="tag"
+                                                    value={formData.tag}
+                                                    onChange={handleInputChange}
+                                                    className={`${inputStyles} ${errors.tag ? "border-red-300 focus:ring-red-500" : ""}`}
+                                                    placeholder="e.g New client, Returning Client"
+                                                />
+                                                {errors.tag && <p className="mt-1 text-xs text-red-500">{errors.tag}</p>}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-end gap-3 mt-6">
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmitting}
+                                                className={`px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700 ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                                                    }`}
+                                            >
+                                                {isSubmitting ? (
+                                                    <>
+                                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                                        Updating...
+                                                    </>
+                                                ) : (
+                                                    "Update Contact"
+                                                )}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );

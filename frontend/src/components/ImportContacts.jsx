@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { Upload, X, Loader2, ChevronDown } from "lucide-react";
+import { Upload, X, Loader2, ChevronDown, Trash2 } from "lucide-react";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
 import Spinner from "./Spinner";
@@ -12,17 +12,18 @@ function ImportContactsModal({ isOpen, onClose }) {
     const [csvFile, setCsvFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [csvPreview, setCsvPreview] = useState([]);
+    const [headers, setHeaders] = useState([]);
+    const [droppedColumns, setDroppedColumns] = useState([]);
     const [mapping, setMapping] = useState({});
     const [openDropdown, setOpenDropdown] = useState(null);
     const [showSpinner, setShowSpinner] = useState(false);
     const mappingRef = useRef(null);
 
-    // Updated fields per backend
     const FIELDS = [
         { key: "prefix", label: "Prefix" },
-        { key: "first_name", label: "First Name" },
-        { key: "last_name", label: "Last Name" },
-        { key: "email", label: "Email" },
+        { key: "first_name", label: "First Name", required: true },
+        { key: "last_name", label: "Last Name", required: true }, 
+        { key: "email", label: "Email" }, 
         { key: "phone_number", label: "Phone Number" },
         { key: "city", label: "City" },
         { key: "postal_code", label: "Postal Code" },
@@ -30,7 +31,7 @@ function ImportContactsModal({ isOpen, onClose }) {
         { key: "address", label: "Address" },
         { key: "state", label: "State / Province" },
         { key: "tag", label: "Tag" },
-        { key: "website", label: "Website" }, // updated field
+        { key: "website", label: "Website" }, 
     ];
 
     // Handle CSV upload
@@ -43,7 +44,21 @@ function ImportContactsModal({ isOpen, onClose }) {
                     const data = result.data.filter((row) =>
                         row.some((cell) => cell.trim() !== "")
                     );
-                    setCsvPreview(data.slice(0, 6)); // header + preview
+
+                    if (data.length > 0) {
+                        const numCols = Math.max(...data.map((row) => row.length));
+                        const generatedHeaders = Array.from(
+                            { length: numCols },
+                            (_, i) => `Column ${i + 1}`
+                        );
+
+                        setHeaders(generatedHeaders);
+                        setCsvPreview(data.slice(0, 6));
+                        setDroppedColumns([]);
+                        setMapping({});
+                    } else {
+                        notify.error("CSV file is empty or invalid");
+                    }
                 },
                 header: false,
                 skipEmptyLines: true,
@@ -56,12 +71,53 @@ function ImportContactsModal({ isOpen, onClose }) {
     const handleDeselectFile = () => {
         setCsvFile(null);
         setCsvPreview([]);
+        setHeaders([]);
+        setDroppedColumns([]);
         setMapping({});
         setOpenDropdown(null);
     };
 
+    const handleDropColumn = (index) => {
+        setDroppedColumns((prev) => [...prev, index]);
+        setMapping((prev) => {
+            const newMapping = { ...prev };
+            delete newMapping[index];
+            return newMapping;
+        });
+    };
+
+    const validateMapping = () => {
+        const requiredFields = FIELDS.filter((f) => f.required).map((f) => f.key);
+        const mappedFields = Object.values(mapping);
+        const missing = requiredFields.filter(
+            (field) => !mappedFields.includes(field)
+        );
+        const duplicates = mappedFields.filter(
+            (field, index) => field && mappedFields.indexOf(field) !== index
+        );
+
+        if (missing.length > 0) {
+            notify.error(
+                `Please map required fields: ${missing
+                    .map((key) => FIELDS.find((f) => f.key === key).label)
+                    .join(", ")}`
+            );
+            return false;
+        }
+        if (duplicates.length > 0) {
+            notify.error(
+                `Duplicate mappings detected for: ${duplicates
+                    .map((key) => FIELDS.find((f) => f.key === key).label)
+                    .join(", ")}`
+            );
+            return false;
+        }
+        return true;
+    };
+
     const handleUploadCSV = async () => {
         if (!csvFile) return notify.error("Please select a CSV file first!");
+        if (!validateMapping()) return;
 
         const formData = new FormData();
         formData.append("file", csvFile);
@@ -69,10 +125,14 @@ function ImportContactsModal({ isOpen, onClose }) {
 
         try {
             setIsUploading(true);
-            const response = await axios.post(`${backend}/contacts/add-via-csv`, formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-                withCredentials: true,
-            });
+            const response = await axios.post(
+                `${backend}/contacts/add-via-csv`,
+                formData,
+                {
+                    headers: { "Content-Type": "multipart/form-data" },
+                    withCredentials: true,
+                }
+            );
 
             notify.success(response.data.message || "CSV uploaded successfully");
             setShowSpinner(true);
@@ -109,21 +169,25 @@ function ImportContactsModal({ isOpen, onClose }) {
 
     if (!isOpen) return null;
 
-    const buttonStyles = `px-4 py-3 rounded-md font-semibold flex items-center gap-2 transition duration-200`;
+    const buttonStyles =
+        "px-4 py-3 rounded-xs font-semibold flex items-center gap-2 transition duration-200";
 
     return (
         <div className="fixed inset-0 flex items-center justify-center z-[10000] bg-black/30 backdrop-blur-sm">
-            <div className="bg-white rounded-md border border-blue-200 w-full max-w-4xl mx-auto shadow-lg overflow-hidden">
+            <div className="bg-white rounded-xs border border-blue-200 w-full max-w-4xl mx-auto shadow-lg overflow-hidden">
                 {/* Header */}
                 <div className="bg-blue-100 px-6 py-3 flex justify-between items-center">
                     <h2 className="text-lg font-bold text-[#061338]">Import Contacts</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-8 overflow-hidden">
+                <div className="p-8">
                     <div className="space-y-6">
                         {/* File Upload */}
                         <div className="space-y-4">
@@ -141,7 +205,7 @@ function ImportContactsModal({ isOpen, onClose }) {
                                     />
                                 </label>
                             ) : (
-                                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-md border border-blue-300">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-xs border border-blue-300">
                                     <Upload className="w-4 h-4 text-indigo-600" />
                                     <span>Selected file: {csvFile.name}</span>
                                     <button
@@ -183,76 +247,133 @@ function ImportContactsModal({ isOpen, onClose }) {
                                     Preview & Map Fields
                                 </h3>
 
-                                <div className="overflow-x-auto border border-blue-200 rounded-md">
-                                    <table className="min-w-full border-collapse text-sm">
-                                        <thead>
-                                            <tr>
-                                                {csvPreview[0].map((_, index) => (
-                                                    <th
-                                                        key={index}
-                                                        className="px-3 py-2 bg-blue-100 text-left text-xs font-semibold text-gray-600"
-                                                    >
-                                                        Column {index + 1}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {csvPreview.slice(1).map((row, rIndex) => (
-                                                <tr key={rIndex} className="even:bg-blue-50">
-                                                    {row.map((cell, cIndex) => (
-                                                        <td key={cIndex} className="px-3 py-2 text-gray-700">
-                                                            {cell}
-                                                        </td>
-                                                    ))}
+                                <div className="border border-blue-200 rounded-xs overflow-hidden h-96 relative">
+                                    {/* Scrollable section */}
+                                    <div className="overflow-y-scroll h-full no-scrollbar p-2">
+                                        <table className="min-w-full border-collapse text-sm">
+                                            <thead>
+                                                <tr>
+                                                    {headers.map(
+                                                        (header, index) =>
+                                                            !droppedColumns.includes(index) && (
+                                                                <th
+                                                                    key={index}
+                                                                    className="px-3 py-2 bg-blue-100 text-left text-xs font-semibold text-gray-600"
+                                                                >
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span>{header}</span>
+                                                                        <button
+                                                                            onClick={() => handleDropColumn(index)}
+                                                                            className="text-red-500 hover:text-red-700"
+                                                                            title="Drop column"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                </th>
+                                                            )
+                                                    )}
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody>
+                                                {csvPreview.map((row, rIndex) => (
+                                                    <tr key={rIndex} className="even:bg-blue-50">
+                                                        {row.map(
+                                                            (cell, cIndex) =>
+                                                                !droppedColumns.includes(cIndex) && (
+                                                                    <td
+                                                                        key={cIndex}
+                                                                        className="px-3 py-2 text-gray-700"
+                                                                    >
+                                                                        {cell}
+                                                                    </td>
+                                                                )
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
 
-                                {/* Reverse Mapping: Field → Column */}
-                                <div ref={mappingRef} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-                                    {FIELDS.map((field) => (
-                                        <div key={field.key} className="flex flex-col relative">
-                                            <span className="text-sm text-gray-600 mb-1">{field.label}</span>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setOpenDropdown(openDropdown === field.key ? null : field.key);
-                                                }}
-                                                className="w-full flex justify-between items-center px-4 py-3 rounded-md bg-white border border-blue-300 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                                            >
-                                                {mapping[field.key] !== undefined
-                                                    ? `Column ${parseInt(mapping[field.key]) + 1}`
-                                                    : "Select column"}
-                                                <ChevronDown
-                                                    className={`w-5 h-5 text-gray-500 transform transition-transform duration-200 ${openDropdown === field.key ? "rotate-180" : "rotate-0"
-                                                        }`}
-                                                />
-                                            </button>
-                                            {openDropdown === field.key && (
-                                                <ul className="absolute left-0 mt-2 w-full rounded-md bg-white border border-blue-100 z-50 max-h-40 overflow-y-auto shadow-sm animate-fadeIn">
-                                                    {csvPreview[0].map((_, idx) => (
-                                                        <li
-                                                            key={idx}
-                                                            onClick={() => {
-                                                                setMapping((prev) => ({ ...prev, [field.key]: idx }));
-                                                                setOpenDropdown(null);
-                                                            }}
-                                                            className={`px-4 py-3 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${mapping[field.key] === idx
-                                                                    ? "bg-amber-100 text-amber-700"
-                                                                    : ""
-                                                                }`}
-                                                        >
-                                                            Column {idx + 1}
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                        {/* Column-to-Field Mapping */}
+                                        <div
+                                            ref={mappingRef}
+                                            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6"
+                                        >
+                                            {headers.map(
+                                                (header, index) =>
+                                                    !droppedColumns.includes(index) && (
+                                                        <div key={index} className="flex flex-col relative">
+                                                            <span className="text-sm text-gray-600 mb-1">
+                                                                {header}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenDropdown(
+                                                                        openDropdown === index ? null : index
+                                                                    );
+                                                                }}
+                                                                className="w-full flex justify-between items-center px-4 py-3 rounded-xs bg-white border border-blue-300 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                                            >
+                                                                {mapping[index]
+                                                                    ? FIELDS.find(
+                                                                        (f) => f.key === mapping[index]
+                                                                    ).label
+                                                                    : "None"}
+                                                                <ChevronDown
+                                                                    className={`w-5 h-5 text-gray-500 transform transition-transform duration-200 ${openDropdown === index
+                                                                        ? "rotate-180"
+                                                                        : "rotate-0"
+                                                                        }`}
+                                                                />
+                                                            </button>
+                                                            {openDropdown === index && (
+                                                                <ul className="absolute left-0 mt-2 w-full rounded-xs bg-white border border-blue-100 z-50 max-h-40 overflow-y-auto shadow-sm">
+                                                                    <li
+                                                                        onClick={() => {
+                                                                            setMapping((prev) => {
+                                                                                const newMapping = { ...prev };
+                                                                                delete newMapping[index];
+                                                                                return newMapping;
+                                                                            });
+                                                                            setOpenDropdown(null);
+                                                                        }}
+                                                                        className={`px-4 py-3 cursor-pointer hover:bg-blue-50 hover:text-blue-700 ${!mapping[index]
+                                                                            ? "bg-amber-100 text-amber-700"
+                                                                            : ""
+                                                                            }`}
+                                                                    >
+                                                                        None
+                                                                    </li>
+                                                                    {FIELDS.map((field) => (
+                                                                        <li
+                                                                            key={field.key}
+                                                                            onClick={() => {
+                                                                                setMapping((prev) => ({
+                                                                                    ...prev,
+                                                                                    [index]: field.key,
+                                                                                }));
+                                                                                setOpenDropdown(null);
+                                                                            }}
+                                                                            className={`px-4 py-3 cursor-pointer hover:bg-blue-50 hover:text-blue-700 ${mapping[index] === field.key
+                                                                                ? "bg-amber-100 text-amber-700"
+                                                                                : ""
+                                                                                }`}
+                                                                        >
+                                                                            {field.label}{" "}
+                                                                            {field.required && (
+                                                                                <span className="text-red-500">*</span>
+                                                                            )}
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                    )
                                             )}
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -281,9 +402,9 @@ function ImportContactsModal({ isOpen, onClose }) {
                         )}
                     </div>
                 </div>
-            </div>
 
-            {showSpinner && <Spinner />}
+                {showSpinner && <Spinner />}
+            </div>
         </div>
     );
 }
