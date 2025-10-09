@@ -14,11 +14,20 @@ const s3 = new S3Client({
 // Fetch all contacts
 const getContacts = async (req, res) => {
   const userId = req.userId;
+  const { websiteId } = req.params
   try {
-    const result = await client.query(
-      "SELECT * FROM contacts WHERE user_id = $1 ORDER BY created_at DESC",
-      [userId]
-    );
+    let result;
+    if (websiteId) {
+      result = await client.query(
+        "SELECT * FROM contacts WHERE user_id = $1 AND website_id = $2 ORDER BY created_at DESC",
+        [userId, websiteId]
+      );
+    } else {
+      result = await client.query(
+        "SELECT * FROM contacts WHERE user_id = $1 ORDER BY created_at DESC", [userId]
+      )
+    }
+
     res.status(200).json(result.rows);
   } catch (error) {
     console.error("Error fetching contacts:", error);
@@ -190,6 +199,7 @@ const addViaCSV = async (req, res) => {
     }
 
     const userId = req.userId;
+    const { websiteId } = req.params; //Grab websiteId from URL params
     const bucket = process.env.AWS_S3_BUCKET;
     const key = req.file.key;
     const contacts = [];
@@ -202,7 +212,7 @@ const addViaCSV = async (req, res) => {
       return res.status(400).json({ error: "Invalid mapping format" });
     }
 
-    // First Name and Last Name required
+    // Required fields
     const requiredFields = ["first_name", "last_name"];
     const mappedFields = Object.values(mapping);
     const missingFields = requiredFields.filter((field) => !mappedFields.includes(field));
@@ -213,11 +223,11 @@ const addViaCSV = async (req, res) => {
       });
     }
 
-    // Fetch file from S3
+    // Fetch CSV file from S3
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const response = await s3.send(command);
 
-    // Parse CSV stream with mapping applied
+    // Parse CSV and build contact objects
     await new Promise((resolve, reject) => {
       response.Body.pipe(csv())
         .on("data", (row) => {
@@ -226,6 +236,7 @@ const addViaCSV = async (req, res) => {
 
           const contact = {
             user_id: userId,
+            website_id: websiteId, // ✅ Add websiteId directly
             prefix: null,
             phone_number: null,
             email: null,
@@ -237,12 +248,11 @@ const addViaCSV = async (req, res) => {
             country: null,
             state: null,
             gender: null,
-            website: null,
             tag: "New Client",
             unsubscribe_token: unsubscribeToken,
           };
 
-          // Apply column mapping
+          // Apply mapping
           for (const [colIndex, fieldName] of Object.entries(mapping)) {
             const index = parseInt(colIndex);
             if (isNaN(index) || !headers[index]) continue;
@@ -252,19 +262,14 @@ const addViaCSV = async (req, res) => {
             }
           }
 
-          // Derive gender from prefix
+          // Gender inference
           if (contact.prefix) {
             const normalized = contact.prefix.trim().toLowerCase();
             if (normalized === "mr") contact.gender = "Male";
             else if (normalized === "mrs") contact.gender = "Female";
           }
 
-          // Validate required fields (only first_name, last_name)
-          const missingFields = [];
-          if (!contact.first_name) missingFields.push("First Name");
-          if (!contact.last_name) missingFields.push("Last Name");
-
-          if (missingFields.length === 0) {
+          if (contact.first_name && contact.last_name) {
             contacts.push(contact);
           }
         })
@@ -281,8 +286,8 @@ const addViaCSV = async (req, res) => {
     for (const c of contacts) {
       const insertQuery = `
         INSERT INTO contacts (
-          user_id, prefix, phone_number, email, first_name, last_name,
-          address, city, postal_code, country, state, gender, website, tag, unsubscribe_token
+          user_id, website_id, prefix, phone_number, email, first_name, last_name,
+          address, city, postal_code, country, state, gender, tag, unsubscribe_token
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (email, user_id) DO NOTHING
@@ -291,6 +296,7 @@ const addViaCSV = async (req, res) => {
 
       const values = [
         c.user_id,
+        c.website_id,
         c.prefix,
         c.phone_number,
         c.email,
@@ -302,22 +308,18 @@ const addViaCSV = async (req, res) => {
         c.country,
         c.state,
         c.gender,
-        c.website,
         c.tag,
         c.unsubscribe_token,
       ];
 
       const result = await client.query(insertQuery, values);
-      if (result.rows[0]) {
-        insertedContacts.push(result.rows[0]);
-      }
+      if (result.rows[0]) insertedContacts.push(result.rows[0]);
     }
 
-    // Update website contacts JSONB (only for those that have website info)
-    for (const contact of insertedContacts.filter((c) => c.website)) {
+    // Update website's contacts JSONB
+    for (const contact of insertedContacts) {
       const contactData = {
         contact_id: contact.contact_id,
-        prefix: contact.prefix,
         first_name: contact.first_name,
         last_name: contact.last_name,
         email: contact.email,
@@ -330,9 +332,6 @@ const addViaCSV = async (req, res) => {
         gender: contact.gender,
         tag: contact.tag,
         unsubscribe_token: contact.unsubscribe_token,
-        unsubscribed: contact.unsubscribed,
-        created_at: contact.created_at,
-        updated_at: contact.updated_at,
       };
 
       const updateJsonQuery = `
@@ -350,7 +349,7 @@ const addViaCSV = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: `Successfully imported ${insertedContacts.length} contacts`,
+      message: `Successfully imported ${insertedContacts.length} contacts.`,
       count: insertedContacts.length,
     });
   } catch (error) {
@@ -366,6 +365,7 @@ const addViaCSV = async (req, res) => {
     return res.status(500).json({ error: "Failed to import contacts" });
   }
 };
+
 
 //Fetch Website contacts
 const getWebsiteCOntacts = async (req, res) => {

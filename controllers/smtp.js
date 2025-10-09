@@ -16,10 +16,11 @@ const encryptPassword = (text) => {
 
 //SMTP Validation Schema
 const smtpSchema = Joi.object({
+  websiteId: Joi.string().uuid().required(),
   name: Joi.string().max(100).optional(),
 
   smtpUser: Joi.string()
-    .email({ tlds: { allow: false } }) // validate as proper email
+    .email({ tlds: { allow: false } })
     .required(),
 
   smtpPassword: Joi.string().min(4).required(),
@@ -52,13 +53,23 @@ const registerSMTPServer = async (req, res) => {
     }
 
     // Destructure the validated payload
-    const { name, smtpUser, smtpPassword, host, port, secure, testEmail } =
+    const { websiteId, name, smtpUser, smtpPassword, host, port, secure, testEmail } =
       value;
+
+    // Verify website ownership
+    const websiteCheck = await client.query(
+      "SELECT * FROM websites WHERE website_id = $1 AND user_id = $2",
+      [websiteId, userId]
+    );
+
+    if (websiteCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Unauthorized website access" });
+    }
 
     // Enforce maximum of 3 configurations
     const countConfigs = await client.query(
-      "SELECT COUNT(*) FROM smtp_configs WHERE user_id = $1",
-      [userId]
+      "SELECT COUNT(*) FROM smtp_configs WHERE website_id = $1",
+      [websiteId]
     );
     if (parseInt(countConfigs.rows[0].count) >= 3) {
       return res
@@ -121,13 +132,14 @@ const registerSMTPServer = async (req, res) => {
     // Insert configuration into DB
     const insertQuery = `
       INSERT INTO smtp_configs 
-        (user_id, name, smtp_host, smtp_port, smtp_user, smtp_password, use_tls) 
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
+        (user_id, website_id, name, smtp_host, smtp_port, smtp_user, smtp_password, use_tls) 
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       RETURNING config_id
     `;
 
     const values = [
       userId,
+      websiteId,
       name || null,
       smtpHost,
       smtpPort,
@@ -138,7 +150,6 @@ const registerSMTPServer = async (req, res) => {
 
     const result = await client.query(insertQuery, values);
 
-    // Fire and forget
     //Sends Server Registration Email
     serverRegistrationEmail(userId).catch((err) => {
       console.error("Background SES send failed:", err.message);
@@ -158,15 +169,26 @@ const registerSMTPServer = async (req, res) => {
 //Fetch SMPT server
 const getSMTPServers = async (req, res) => {
   const userId = req.userId;
+  const { websiteId } = req.params;
+
   try {
-    const result = await client.query(
-      "SELECT * FROM smtp_configs WHERE user_id = $1 ORDER BY created_at DESC",
-      [userId]
-    );
+    let result;
+    if (websiteId) {
+      result = await client.query(
+        "SELECT * FROM smtp_configs WHERE user_id = $1 AND website_id = $2 ORDER BY created_at DESC",
+        [userId, websiteId]
+      );
+    } else {
+      result = await client.query(
+        "SELECT * FROM smtp_configs WHERE user_id = $1 ORDER BY created_at DESC",
+        [userId]
+      );
+    }
+
     res.status(200).json(result.rows);
   } catch (error) {
-    console.error("Error fetching contacts:", error);
-    res.status(500).json({ error: "Failed to fetch contacts" });
+    console.error("Error fetching SMTP servers:", error);
+    res.status(500).json({ error: "Failed to fetch SMTP servers" });
   }
 };
 

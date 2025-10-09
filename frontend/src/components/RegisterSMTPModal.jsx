@@ -13,14 +13,17 @@ import {
 import axios from "axios";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
+import { useWebsite } from "../context/WebsiteContext";
 
 function RegisterSMTPModal({ isOpen, onClose, onSuccess }) {
+    const {activeWebsite} = useWebsite()
     const [statusStep, setStatusStep] = useState("idle");
     const [showPassword, setShowPassword] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [formStep, setFormStep] = useState(1);
     const [isPortOpen, setIsPortOpen] = useState(false);
     const [smtpData, setSMTPData] = useState({
+        websiteId: "",
         name: "",
         smtpUser: "",
         smtpPassword: "",
@@ -60,6 +63,7 @@ function RegisterSMTPModal({ isOpen, onClose, onSuccess }) {
 
         try {
             const payload = {
+                websiteId: activeWebsite.website_id,
                 name: smtpData.name || undefined,
                 smtpUser: smtpData.smtpUser,
                 smtpPassword: smtpData.smtpPassword,
@@ -84,6 +88,7 @@ function RegisterSMTPModal({ isOpen, onClose, onSuccess }) {
             notify.success(response.data.message);
 
             setSMTPData({
+                websiteId: "",
                 name: "",
                 smtpUser: "",
                 smtpPassword: "",

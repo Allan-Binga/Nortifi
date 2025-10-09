@@ -6,9 +6,11 @@ import { backend } from "../server";
 import { notify } from "../utils/toast";
 import Spinner from "./Spinner";
 import Papa from "papaparse";
+import { useWebsite } from "../context/WebsiteContext";
 
 function ImportContactsModal({ isOpen, onClose }) {
     const navigate = useNavigate();
+    const { activeWebsite } = useWebsite()
     const [csvFile, setCsvFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [csvPreview, setCsvPreview] = useState([]);
@@ -22,8 +24,8 @@ function ImportContactsModal({ isOpen, onClose }) {
     const FIELDS = [
         { key: "prefix", label: "Prefix" },
         { key: "first_name", label: "First Name", required: true },
-        { key: "last_name", label: "Last Name", required: true }, 
-        { key: "email", label: "Email" }, 
+        { key: "last_name", label: "Last Name", required: true },
+        { key: "email", label: "Email" },
         { key: "phone_number", label: "Phone Number" },
         { key: "city", label: "City" },
         { key: "postal_code", label: "Postal Code" },
@@ -31,7 +33,7 @@ function ImportContactsModal({ isOpen, onClose }) {
         { key: "address", label: "Address" },
         { key: "state", label: "State / Province" },
         { key: "tag", label: "Tag" },
-        { key: "website", label: "Website" }, 
+        { key: "website", label: "Website" },
     ];
 
     // Handle CSV upload
@@ -126,7 +128,7 @@ function ImportContactsModal({ isOpen, onClose }) {
         try {
             setIsUploading(true);
             const response = await axios.post(
-                `${backend}/contacts/add-via-csv`,
+                `${backend}/contacts/add-via-csv/${activeWebsite.website_id}`,
                 formData,
                 {
                     headers: { "Content-Type": "multipart/form-data" },

@@ -17,7 +17,7 @@ import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
-import { fetchSMTPs } from "../utils/smtp";
+import { useFetchSMTPs } from "../utils/smtp";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 
@@ -104,7 +104,7 @@ function NewEmail() {
   useEffect(() => {
     const loadSMTPs = async () => {
       try {
-        const servers = await fetchSMTPs();
+        const servers = await useFetchSMTPs();
         setEmailServers(servers);
 
         // Auto-select the first server if available

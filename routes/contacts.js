@@ -14,8 +14,8 @@ const { uploadCSV } = require("../middleware/upload");
 const router = express.Router();
 
 router.post("/create-contact", authUser, createContact);
-router.post("/add-via-csv", authUser, uploadCSV.single("file"), addViaCSV);
-router.get("/all-contacts", authUser, getContacts);
+router.post("/add-via-csv/:websiteId", authUser, uploadCSV.single("file"), addViaCSV);
+router.get("/all-contacts/website/:websiteId", authUser, getContacts);
 router.get("/website/:websiteId", authUser, getWebsiteCOntacts)
 router.patch("/update-contact/:id", authUser, updateContact);
 router.delete("/delete-contact/:id", authUser, deleteContact);

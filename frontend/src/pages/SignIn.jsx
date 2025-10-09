@@ -5,6 +5,7 @@ import { notify } from "../utils/toast";
 import { Mail, Lock, Eye, EyeOff, X } from "lucide-react";
 import { backend } from "../server";
 import Spinner from "../components/Spinner";
+import { useWebsite } from "../context/WebsiteContext";
 
 function SignIn() {
   const [email, setEmail] = useState("");
@@ -14,6 +15,8 @@ function SignIn() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [showForgotModal, setShowForgotModal] = useState(false);
   const navigate = useNavigate();
+
+  const { refreshWebsites } = useWebsite()
 
   // const location = useLocation();
   // const from = location.state?.from?.pathname || "/emails";
@@ -68,13 +71,14 @@ function SignIn() {
         body: JSON.stringify(formData),
       });
 
+
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || "Login failed");
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await refreshWebsites();
       notify.success("Login successful.");
       navigate("/home");
     } catch (error) {

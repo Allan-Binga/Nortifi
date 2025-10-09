@@ -6,14 +6,13 @@ import { notify } from "../utils/toast";
 import Spinner from "./Spinner";
 import { useNavigate } from "react-router-dom";
 import PhoneInputWithCountrySelect from "react-phone-number-input";
-import { fetchWebsites } from "../utils/websites";
+import { useWebsite } from "../context/WebsiteContext";
 import "react-phone-number-input/style.css";
 import "./CustomPhoneInput.css";
 
 function CreateContactModal({ isOpen, onClose, onSuccess }) {
-    const [websites, setWebsites] = useState([]);
-    const [selectedWebsite, setSelectedWebsite] = useState("");
-    const [websiteDropdownOpen, setWebsiteDropdownOpen] = useState(false);
+    const navigate = useNavigate();
+    const { activeWebsite } = useWebsite()
     const [prefixDropdownOpen, setPrefixDropdownOpen] = useState(false);
     const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
     const [errors, setErrors] = useState({});
@@ -42,26 +41,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
         { code: "CA", name: "Canada" },
     ];
 
-    // Fetch websites
-    useEffect(() => {
-        const loadWebsites = async () => {
-            try {
-                const data = await fetchWebsites();
-                const websitesArray = data.websites || [];
-                setWebsites(websitesArray);
-                if (websitesArray.length > 0) {
-                    setSelectedWebsite(websitesArray[0].website_id);
-                    setFormData((prev) => ({ ...prev, websiteId: websitesArray[0].website_id }));
-                }
-            } catch (error) {
-                console.error("Error fetching Websites:", error);
-            }
-        };
-        loadWebsites();
-    }, []);
-
-    const navigate = useNavigate();
-
+    //Validators
     const validateEmail = (email) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
@@ -78,6 +58,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
         return /^\+\d{7,15}$/.test(cleanPhone);
     };
 
+    //Handlers
     const handlePhoneChange = (value) => {
         setFormData((prev) => ({ ...prev, phoneNumber: value || "" }));
         if (errors.phoneNumber) {
@@ -91,12 +72,6 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: "" }));
         }
-    };
-
-    const handleSelectWebsite = (websiteId) => {
-        setSelectedWebsite(websiteId);
-        setFormData((prev) => ({ ...prev, websiteId }));
-        setWebsiteDropdownOpen(false);
     };
 
     const handleSelectPrefix = (prefix) => {
@@ -128,13 +103,9 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
             newErrors.phoneNumber = "Phone number should contain only digits (7-15 characters including country code)";
         }
 
-        if (!formData.tag) {
-            newErrors.tag = "Tag is required";
-        }
+        if (!activeWebsite)
+            newErrors.websiteId = "No active website selected — please refresh or relogin.";
 
-        if (!formData.websiteId) {
-            newErrors.websiteId = "Please select a website";
-        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -150,14 +121,13 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
         setIsSubmitting(true);
 
         try {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            const response = await axios.post(
-                `${backend}/contacts/create-contact`,
-                formData,
-                { withCredentials: true }
-            );
+            const payload = { ...formData, websiteId: activeWebsite.website_id }; // 👈 Add from context
+            await axios.post(`${backend}/contacts/create-contact`, payload, {
+                withCredentials: true,
+            });
 
             notify.success("Contact created successfully");
+
             setFormData({
                 prefix: "",
                 firstName: "",
@@ -174,17 +144,18 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
             });
             setErrors({});
             setShowSpinner(true);
+
+            // Close modal + refresh parent
+            if (onSuccess) onSuccess();
             setTimeout(() => {
+                setShowSpinner(false);
+                onClose();
                 navigate("/contacts");
-            }, 2000);
+            }, 1500);
         } catch (error) {
             const backendMessage = error.response?.data?.error;
-            if (backendMessage) {
-                notify.error(backendMessage);
-            } else {
-                notify.error("Failed to create contact");
-            }
-            console.error("Error:", error);
+            notify.error(backendMessage || "Failed to create contact");
+            console.error("Error creating contact:", error);
         } finally {
             setIsSubmitting(false);
         }
@@ -222,57 +193,20 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                 {/* Create Contact Form */}
                 <div className="p-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Website Selector */}
-                            <div>
+                        {/* Prefix + First + Last Name */}
+                        <div className="grid grid-cols-12 gap-4">
+                            {/* Prefix Dropdown */}
+                            <div className="col-span-1">
                                 <label className="block text-xs font-semibold text-slate-700 mb-2">
-                                    Select Website <span className="text-red-500">*</span>
+                                    Prefix <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <button
                                         type="button"
-                                        onClick={() => setWebsiteDropdownOpen(!websiteDropdownOpen)}
-                                        className={`${inputStyles} flex justify-between items-center text-left`}
-                                    >
-                                        {websites.find((w) => w.website_id === selectedWebsite)?.company_name ||
-                                            websites.find((w) => w.website_id === selectedWebsite)?.domain ||
-                                            "Select Website"}
-                                        <ChevronDown
-                                            className={`text-slate-500 transition-transform duration-300 ${websiteDropdownOpen ? "rotate-180" : "rotate-0"}`}
-                                            size={18}
-                                        />
-                                    </button>
-                                    {websiteDropdownOpen && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg max-h-60 overflow-y-auto">
-                                            {websites.length > 0 ? (
-                                                websites.map((website) => (
-                                                    <div
-                                                        key={website.website_id}
-                                                        onClick={() => handleSelectWebsite(website.website_id)}
-                                                        className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
-                                                    >
-                                                        {website.company_name || website.domain}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="px-4 py-2 text-base text-gray-500">No websites available</div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                                {errors.websiteId && <p className="mt-1 text-xs text-red-500">{errors.websiteId}</p>}
-                            </div>
-
-                            {/* Prefix Dropdown */}
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-2">Prefix  <span className="text-red-500">*</span></label>
-                                <div className="relative">
-                                    <button
-                                        type="button"
                                         onClick={() => setPrefixDropdownOpen(!prefixDropdownOpen)}
-                                        className={`${inputStyles} flex justify-between items-center text-left`}
+                                        className={`${inputStyles} flex justify-between items-center text-left w-full`}
                                     >
-                                        {formData.prefix || "Select Prefix"}
+                                        {formData.prefix || "Select"}
                                         <ChevronDown
                                             className={`text-slate-500 transition-transform duration-300 ${prefixDropdownOpen ? "rotate-180" : "rotate-0"}`}
                                             size={18}
@@ -295,7 +229,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             {/* First Name */}
-                            <div>
+                            <div className="col-span-5">
                                 <label htmlFor="firstName" className="block text-xs font-semibold text-slate-700 mb-2">
                                     First Name <span className="text-red-500">*</span>
                                 </label>
@@ -313,7 +247,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             {/* Last Name */}
-                            <div>
+                            <div className="col-span-6">
                                 <label htmlFor="lastName" className="block text-xs font-semibold text-slate-700 mb-2">
                                     Last Name <span className="text-red-500">*</span>
                                 </label>
@@ -329,7 +263,10 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                                 />
                                 {errors.lastName && <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>}
                             </div>
+                        </div>
 
+                        {/* Email and Phone Number */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                             {/* Email */}
                             <div>
                                 <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-2">
@@ -342,7 +279,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                                     value={formData.email}
                                     onChange={handleInputChange}
                                     required
-                                    className={`${inputStyles} ${errors.email ? "border-red-300 focus:ring-red-500" : ""}`}
+                                    className={`${inputStyles} w-full h-10 ${errors.email ? "border-red-300 focus:ring-red-500" : ""}`}
                                     placeholder="Enter email address"
                                 />
                                 {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
@@ -351,7 +288,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                             {/* Phone Number */}
                             <div>
                                 <label htmlFor="phoneNumber" className="block text-xs font-semibold text-slate-700 mb-2">
-                                    Phone Number  <span className="text-red-500">*</span>
+                                    Phone Number <span className="text-red-500">*</span>
                                 </label>
                                 <PhoneInputWithCountrySelect
                                     international
@@ -359,16 +296,19 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                                     defaultCountry="KE"
                                     value={formData.phoneNumber}
                                     onChange={handlePhoneChange}
-                                    className={`${inputStyles} ${errors.phoneNumber ? "border-red-300 focus-within:ring-red-500" : ""}`}
+                                    className={`${inputStyles} w-full h-10 ${errors.phoneNumber ? "border-red-300 focus-within:ring-red-500" : ""}`}
                                     placeholder="Enter phone number"
                                 />
                                 {errors.phoneNumber && <p className="mt-1 text-xs text-red-500">{errors.phoneNumber}</p>}
                             </div>
+                        </div>
 
+                        {/* Rest of the form remains unchanged */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                             {/* Address */}
                             <div>
                                 <label htmlFor="address" className="block text-xs font-semibold text-slate-700 mb-2">
-                                    Address  <span className="text-red-500">*</span>
+                                    Address <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -384,7 +324,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                             {/* State */}
                             <div>
                                 <label htmlFor="state" className="block text-xs font-semibold text-slate-700 mb-2">
-                                    State / Province  <span className="text-red-500">*</span>
+                                    State / Province <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -401,7 +341,9 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                             {/* Country Dropdown */}
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-2">Country  <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                                    Country <span className="text-red-500">*</span>
+                                </label>
                                 <div className="relative">
                                     <button
                                         type="button"
@@ -433,7 +375,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                             {/* City */}
                             <div>
                                 <label htmlFor="city" className="block text-xs font-semibold text-slate-700 mb-2">
-                                    City  <span className="text-red-500">*</span>
+                                    City <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -446,10 +388,10 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                                 />
                             </div>
 
-                            {/* Tag */}
+                            {/* Tag (Optional) */}
                             <div>
                                 <label htmlFor="tag" className="block text-xs font-semibold text-slate-700 mb-2">
-                                    Tag
+                                    Tag <span className="text-gray-400">(Optional)</span>
                                 </label>
                                 <input
                                     type="text"
@@ -457,9 +399,8 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                                     name="tag"
                                     value={formData.tag}
                                     onChange={handleInputChange}
-                                    required
                                     className={`${inputStyles} ${errors.tag ? "border-red-300 focus:ring-red-500" : ""}`}
-                                    placeholder="e.g New client, Returning Client"
+                                    placeholder="e.g. New Client, Returning Client"
                                 />
                                 {errors.tag && <p className="mt-1 text-xs text-red-500">{errors.tag}</p>}
                             </div>
@@ -469,8 +410,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className={`px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700 ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                                    }`}
+                                className={`px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700 ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
                             >
                                 {isSubmitting ? (
                                     <>
@@ -484,6 +424,7 @@ function CreateContactModal({ isOpen, onClose, onSuccess }) {
                         </div>
                     </form>
                 </div>
+
             </div>
         </div>
     );

@@ -13,7 +13,13 @@ const ProtectedRoute = ({ children }) => {
             .catch(() => setIsValid(false));
     }, []);
 
-    if (isValid === null) return <div><Spinner size="medium" /></div>; // or spinner
+    if (isValid === null)
+        return (
+            <div className="flex items-center justify-center h-screen bg-white">
+                <Spinner size="medium" />
+            </div>
+        );
+
     if (isValid === false) return <Navigate to="/sign-in" replace />;
 
     return children;
