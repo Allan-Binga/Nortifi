@@ -51,6 +51,8 @@ function Contacts() {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
     const [isLoading, setIsLoading] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    const [exportFormat, setExportFormat] = useState("csv");
+    const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
 
     // Sample country list (same as CreateContactModal)
     const countries = [
@@ -60,11 +62,20 @@ function Contacts() {
         { code: "CA", name: "Canada" },
     ];
 
+    //Fetch Contacts
     useEffect(() => {
         const fetchContacts = async () => {
             setLoading(true);
             try {
-                const response = await axios.get(`${backend}/contacts/all-contacts/website/${activeWebsite.website_id}`, {
+                const storedWebsite = JSON.parse(localStorage.getItem("activeWebsite"))
+                const websiteId = activeWebsite?.website_id || storedWebsite?.website_id;
+
+                if (!websiteId) {
+                    notify.info("Please select a website first.");
+                    return [];
+                }
+
+                const response = await axios.get(`${backend}/contacts/all-contacts/website/${websiteId}`, {
                     withCredentials: true,
                 });
                 setContacts(response.data);
@@ -96,6 +107,43 @@ function Contacts() {
         };
         loadWebsites();
     }, []);
+
+    // Export contacts
+    const exportContacts = async (format = "csv") => {
+        try {
+            setIsLoading(true);
+            const response = await axios.post(
+                `${backend}/contacts/export-contacts/${activeWebsite.website_id}?format=${format}`,
+                { contactIds: selectedContacts },
+                {
+                    withCredentials: true,
+                    responseType: "blob",
+                }
+            );
+
+            const blob = response.data;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `contacts-${activeWebsite.website_id}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            notify.success(`Contacts exported as ${format.toUpperCase()}`);
+        } catch (error) {
+            notify.error("Failed to export contacts");
+            console.error("Error exporting contacts:", error);
+        } finally {
+            setIsLoading(false);
+            setExportDropdownOpen(false);
+        }
+    };
+
+    // Toggle export dropdown
+    const toggleExportDropdown = () => {
+        setExportDropdownOpen((prev) => !prev);
+    };
 
     // Filter and sort contacts
     useEffect(() => {
@@ -418,7 +466,7 @@ function Contacts() {
 
                     <div className="flex-1 overflow-y-auto p-6 transition-all duration-300 mt-6">
 
-                        {/* Search and Filters - OUTSIDE the All Contacts div */}
+                        {/* Search and Filters*/}
                         <div className="max-w-8xl mx-auto px-6 mb-6">
                             <div className="flex items-center justify-end gap-4 w-full">
                                 {/* Search Bar */}
@@ -604,6 +652,36 @@ function Contacts() {
                                             >
                                                 {deleting ? "Deleting..." : "Delete Selected"}
                                             </button>
+                                            {/* Export Contacts Button */}
+                                            <div className="relative">
+                                                <button
+                                                    onClick={toggleExportDropdown}
+                                                    disabled={isLoading}
+                                                    className={`px-4 py-2 rounded-sm font-semibold text-white transition ${isLoading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                                                        }`}
+                                                >
+                                                    {isLoading ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
+                                                    ) : null}
+                                                    Export Contacts
+                                                </button>
+                                                {exportDropdownOpen && (
+                                                    <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-sm shadow-lg z-10">
+                                                        <button
+                                                            onClick={() => exportContacts("csv")}
+                                                            className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50"
+                                                        >
+                                                            Export as CSV
+                                                        </button>
+                                                        <button
+                                                            onClick={() => exportContacts("pdf")}
+                                                            className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50"
+                                                        >
+                                                            Export as PDF
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -702,7 +780,7 @@ function Contacts() {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {filteredContacts.map((contact) => (
+                                                    {filteredContacts.slice(0, 10).map((contact) => (
                                                         <tr
                                                             key={contact.contact_id}
                                                             className={`border-b border-slate-100 hover:bg-slate-50 transition duration-200 ${selectedContacts.includes(contact.contact_id) ? "bg-blue-50" : ""

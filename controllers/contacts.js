@@ -2,6 +2,9 @@ const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
 const csv = require("csv-parser");
 const client = require("../config/db");
 const crypto = require("crypto");
+const { Parser } = require("json2csv");
+const PDFDocument = require("pdfkit");
+
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
@@ -212,17 +215,6 @@ const addViaCSV = async (req, res) => {
       return res.status(400).json({ error: "Invalid mapping format" });
     }
 
-    // Required fields
-    const requiredFields = ["first_name", "last_name"];
-    const mappedFields = Object.values(mapping);
-    const missingFields = requiredFields.filter((field) => !mappedFields.includes(field));
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        error: `Missing required fields: ${missingFields.join(", ")}`,
-      });
-    }
-
     // Fetch CSV file from S3
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const response = await s3.send(command);
@@ -236,7 +228,7 @@ const addViaCSV = async (req, res) => {
 
           const contact = {
             user_id: userId,
-            website_id: websiteId, // ✅ Add websiteId directly
+            website_id: websiteId, 
             prefix: null,
             phone_number: null,
             email: null,
@@ -366,6 +358,170 @@ const addViaCSV = async (req, res) => {
   }
 };
 
+//Export contacts to PDF, CSV, or any format
+const exportContacts = async (req, res) => {
+  const userId = req.userId;
+  const { websiteId } = req.params;
+  const format = (req.query.format || "csv").toLowerCase();
+  const { contactIds } = req.body || {}; // selected IDs from frontend
+
+  if (!websiteId) {
+    return res.status(400).json({ error: "websiteId is required as a route param." });
+  }
+
+  if (!["csv", "pdf"].includes(format)) {
+    return res.status(400).json({ error: "Invalid format. Use 'csv' or 'pdf'." });
+  }
+
+  try {
+    let query;
+    let params = [userId, websiteId];
+
+    // If specific contacts selected
+    if (Array.isArray(contactIds) && contactIds.length > 0) {
+      const placeholders = contactIds.map((_, i) => `$${i + 3}`).join(", ");
+      query = `
+        SELECT contact_id, first_name, last_name, email, phone_number, prefix,
+               address, city, state, country, postal_code, tag, gender, unsubscribed, created_at
+        FROM contacts
+        WHERE user_id = $1 AND website_id = $2 AND contact_id IN (${placeholders})
+        ORDER BY created_at DESC
+      `;
+      params = [...params, ...contactIds];
+    } else {
+      // Otherwise export all contacts for that website
+      query = `
+        SELECT contact_id, first_name, last_name, email, phone_number, prefix,
+               address, city, state, country, postal_code, tag, gender, unsubscribed, created_at
+        FROM contacts
+        WHERE user_id = $1 AND website_id = $2
+        ORDER BY created_at DESC
+      `;
+    }
+
+    const { rows: contacts } = await client.query(query, params);
+
+    if (!contacts || contacts.length === 0) {
+      return res.status(404).json({ error: "No contacts found for export." });
+    }
+
+    // ---------- CSV ----------
+    if (format === "csv") {
+      const fields = [
+        "contact_id",
+        "first_name",
+        "last_name",
+        "email",
+        "phone_number",
+        "prefix",
+        "address",
+        "city",
+        "state",
+        "country",
+        "postal_code",
+        "tag",
+        "gender",
+        "unsubscribed",
+        "created_at",
+      ];
+      const parser = new Parser({ fields });
+      const csvData = parser.parse(contacts);
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="contacts-${websiteId}.csv"`
+      );
+      return res.status(200).send(csvData);
+    }
+
+    // ---------- PDF ----------
+    if (format === "pdf") {
+      const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 30 });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="contacts-${websiteId}.pdf"`
+      );
+      doc.pipe(res);
+
+      doc.fontSize(16).text("Contacts Export", { align: "center" });
+      doc.moveDown(0.5);
+
+      const startX = doc.page.margins.left;
+      let y = doc.y + 6;
+      const colWidths = {
+        first: 80,
+        last: 80,
+        email: 260,
+        phone: 100,
+        city: 90,
+        country: 90,
+        tag: 70,
+        unsub: 40,
+        created: 110,
+      };
+
+      doc.font("Helvetica-Bold").fontSize(9);
+      let x = startX;
+      doc.text("First", x, y, { width: colWidths.first });
+      x += colWidths.first;
+      doc.text("Last", x, y, { width: colWidths.last });
+      x += colWidths.last;
+      doc.text("Email", x, y, { width: colWidths.email });
+      x += colWidths.email;
+      doc.text("Phone", x, y, { width: colWidths.phone });
+      x += colWidths.phone;
+      doc.text("City", x, y, { width: colWidths.city });
+      x += colWidths.city;
+      doc.text("Country", x, y, { width: colWidths.country });
+      x += colWidths.country;
+      doc.text("Tag", x, y, { width: colWidths.tag });
+      x += colWidths.tag;
+      doc.text("Unsub", x, y, { width: colWidths.unsub });
+      x += colWidths.unsub;
+      doc.text("Created", x, y, { width: colWidths.created });
+      y += 18;
+
+      doc.font("Helvetica").fontSize(9);
+      const pageBottom = doc.page.height - doc.page.margins.bottom - 10;
+
+      for (const c of contacts) {
+        if (y > pageBottom) {
+          doc.addPage({ layout: "landscape" });
+          y = doc.page.margins.top;
+        }
+
+        x = startX;
+        doc.text(c.first_name || "", x, y, { width: colWidths.first });
+        x += colWidths.first;
+        doc.text(c.last_name || "", x, y, { width: colWidths.last });
+        x += colWidths.last;
+        doc.text(c.email || "", x, y, { width: colWidths.email });
+        x += colWidths.email;
+        doc.text(c.phone_number || "", x, y, { width: colWidths.phone });
+        x += colWidths.phone;
+        doc.text(c.city || "", x, y, { width: colWidths.city });
+        x += colWidths.city;
+        doc.text(c.country || "", x, y, { width: colWidths.country });
+        x += colWidths.country;
+        doc.text(c.tag || "", x, y, { width: colWidths.tag });
+        x += colWidths.tag;
+        doc.text(c.unsubscribed ? "Yes" : "No", x, y, { width: colWidths.unsub });
+        x += colWidths.unsub;
+        const created = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+        doc.text(created, x, y, { width: colWidths.created });
+        y += 16;
+      }
+
+      doc.end();
+      return;
+    }
+  } catch (err) {
+    console.error("Error exporting contacts:", err);
+    return res.status(500).json({ error: "Failed to export contacts." });
+  }
+};
 
 //Fetch Website contacts
 const getWebsiteCOntacts = async (req, res) => {
@@ -550,6 +706,7 @@ module.exports = {
   getContacts,
   createContact,
   addViaCSV,
+  exportContacts,
   getWebsiteCOntacts,
   updateContact,
   deleteContact,
