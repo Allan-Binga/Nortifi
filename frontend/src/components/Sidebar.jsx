@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
 import { Link, useLocation } from "react-router-dom";
 import {
     Mail,
@@ -18,7 +19,6 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { useFetchSMTPs } from "../utils/smtp";
-import { backend } from "../server";
 import { notify } from "../utils/toast";
 import ImportContactsModal from "./ImportContacts";
 import RegisterSMTPModal from "./RegisterSMTPModal";
@@ -38,6 +38,7 @@ function Sidebar({ isOpen, toggleSidebar }) {
     const location = useLocation();
     const mainTimeoutRef = useRef(null);
     const subTimeoutRef = useRef(null);
+    const { logoutUser } = useAuth()
 
     const navItems = [
         { name: "Home", path: "/home", icon: <Home className="w-6 h-6" /> },
@@ -82,23 +83,10 @@ function Sidebar({ isOpen, toggleSidebar }) {
         getSMTPs();
     }, [activeWebsite]);
 
-
-    const handleLogout = async () => {
-        try {
-            const response = await axios.post(`${backend}/auth/user/sign-out`, {}, { withCredentials: true });
-            if (response.status === 200) {
-                document.cookie = "userMailMktSession=; Max-Age=0; path=/;";
-                localStorage.clear();
-                notify.success("Successfully logged out.");
-                setTimeout(() => (window.location.href = "/sign-in"), 800);
-            } else {
-                notify.error("You are not logged in.");
-            }
-        } catch (error) {
-            console.error(error);
-            notify.error("Failed to log out.");
-        }
-    };
+    //Logout
+    const handleLogout = () => {
+        logoutUser()
+    }
 
     // Hover handlers
     const handleMainEnter = (name) => {
@@ -111,20 +99,6 @@ function Sidebar({ isOpen, toggleSidebar }) {
         mainTimeoutRef.current = setTimeout(() => {
             if (!activeSubDropdown) setActiveDropdown(null);
         }, 200);
-    };
-
-    const handleSubEnter = (name) => {
-        if (subTimeoutRef.current) clearTimeout(subTimeoutRef.current);
-        if (mainTimeoutRef.current) clearTimeout(mainTimeoutRef.current);
-        setActiveSubDropdown(name);
-        setActiveDropdown("Contacts");
-    };
-
-    const handleSubLeave = () => {
-        subTimeoutRef.current = setTimeout(() => {
-            setActiveSubDropdown(null);
-            mainTimeoutRef.current = setTimeout(() => setActiveDropdown(null), 150);
-        }, 150);
     };
 
     // Contact modals
@@ -223,6 +197,16 @@ function Sidebar({ isOpen, toggleSidebar }) {
                                             }}
                                             onMouseLeave={handleMainLeave}
                                         >
+                                            <button
+                                                onClick={() => {
+                                                    handleNewContactClick();
+                                                    setActiveDropdown(null);
+                                                }}
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
+                                            >
+                                                <Plus className="w-6 h-6" />
+                                                New Contact
+                                            </button>
                                             <Link
                                                 to="/contacts"
                                                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
@@ -234,26 +218,18 @@ function Sidebar({ isOpen, toggleSidebar }) {
                                                 <Users className="w-6 h-6" />
                                                 All Contacts
                                             </Link>
-                                            <button
+
+                                            <Link
+                                                to="/import-contacts"
                                                 onClick={() => {
-                                                    handleNewContactClick();
                                                     setActiveDropdown(null);
-                                                }}
-                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
-                                            >
-                                                <Plus className="w-6 h-6" />
-                                                Create Contact
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    handleImportContactsClick();
-                                                    setActiveDropdown(null);
+                                                    if (isOpen) toggleSidebar();
                                                 }}
                                                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-500/80 rounded transition text-left w-full"
                                             >
                                                 <Import className="w-6 h-6" />
                                                 Import Contacts
-                                            </button>
+                                            </Link>
                                         </div>
                                     )}
                                 </div>

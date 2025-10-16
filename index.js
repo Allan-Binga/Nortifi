@@ -11,6 +11,7 @@ const dashboardRoute = require("./routes/dashboard")
 const verificationRoute = require("./routes/verification")
 const passwordRoute = require("./routes/password")
 const websiteRoute = require("./routes/websites")
+const labelsRoute = require("./routes/labels")
 const { scheduleCampaigns } = require("./config/cronScheduler");
 scheduleCampaigns();
 
@@ -50,6 +51,7 @@ app.use(cookieParser());
 app.use("/mail-marketing-system/v1/auth", authRoute);
 app.use("/mail-marketing-system/v1/verification", verificationRoute)
 app.use("/mail-marketing-system/v1/contacts", contactRoute);
+app.use("/mail-marketing-system/v1/labels", labelsRoute);
 app.use("/mail-marketing-system/v1/emails", emailsRoute);
 app.use("/mail-marketing-system/v1/smtp", smtpRoute)
 app.use("/mail-marketing-system/v1/dashboard", dashboardRoute)

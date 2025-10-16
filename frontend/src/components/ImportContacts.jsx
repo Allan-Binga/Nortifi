@@ -23,8 +23,8 @@ function ImportContactsModal({ isOpen, onClose }) {
 
     const FIELDS = [
         { key: "prefix", label: "Prefix" },
-        { key: "first_name", label: "First Name", required: true },
-        { key: "last_name", label: "Last Name", required: true },
+        { key: "first_name", label: "First Name" },
+        { key: "last_name", label: "Last Name" },
         { key: "email", label: "Email" },
         { key: "phone_number", label: "Phone Number" },
         { key: "city", label: "City" },
@@ -88,34 +88,6 @@ function ImportContactsModal({ isOpen, onClose }) {
         });
     };
 
-    const validateMapping = () => {
-        const requiredFields = FIELDS.filter((f) => f.required).map((f) => f.key);
-        const mappedFields = Object.values(mapping);
-        const missing = requiredFields.filter(
-            (field) => !mappedFields.includes(field)
-        );
-        const duplicates = mappedFields.filter(
-            (field, index) => field && mappedFields.indexOf(field) !== index
-        );
-
-        if (missing.length > 0) {
-            notify.error(
-                `Please map required fields: ${missing
-                    .map((key) => FIELDS.find((f) => f.key === key).label)
-                    .join(", ")}`
-            );
-            return false;
-        }
-        if (duplicates.length > 0) {
-            notify.error(
-                `Duplicate mappings detected for: ${duplicates
-                    .map((key) => FIELDS.find((f) => f.key === key).label)
-                    .join(", ")}`
-            );
-            return false;
-        }
-        return true;
-    };
 
     const handleUploadCSV = async () => {
         if (!csvFile) return notify.error("Please select a CSV file first!");
@@ -364,9 +336,7 @@ function ImportContactsModal({ isOpen, onClose }) {
                                                                                 }`}
                                                                         >
                                                                             {field.label}{" "}
-                                                                            {field.required && (
-                                                                                <span className="text-red-500">*</span>
-                                                                            )}
+
                                                                         </li>
                                                                     ))}
                                                                 </ul>

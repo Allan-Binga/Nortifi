@@ -4,6 +4,7 @@ const client = require("../config/db");
 const crypto = require("crypto");
 const { Parser } = require("json2csv");
 const PDFDocument = require("pdfkit");
+const ExcelJS = require("exceljs");
 
 
 const s3 = new S3Client({
@@ -38,144 +39,205 @@ const getContacts = async (req, res) => {
   }
 };
 
+//Filter Contacts by Labels
+const filterByLabel = async (req, res) => {
+  const userId = req.userId;
+  const { labelId } = req.params;
+
+  try {
+    const query = `
+      SELECT * FROM contacts
+      WHERE user_id = $1 AND label_id = $2
+      ORDER BY created_at DESC;
+    `;
+    const result = await client.query(query, [userId, labelId]);
+    res.status(200).json({ success: true, contacts: result.rows });
+  } catch (error) {
+    console.error("Error filtering contacts by label:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
 // Create a contact
 const createContact = async (req, res) => {
   try {
     const {
-      prefix,
+      email,
+      phoneNumber,
       firstName,
       lastName,
-      email,
-      websiteId,
-      phoneNumber,
       address,
       country,
       state,
+      prefix,
       city,
       postalCode,
-      tag,
+      websiteId,
+      labelId,
     } = req.body;
-
     const userId = req.userId;
 
-    // Validate required fields dynamically
-    const missingFields = [];
-    if (!firstName) missingFields.push("First Name");
-    if (!email) missingFields.push("Email");
-    if (!websiteId) missingFields.push("Website ID");
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        error: `The following required field(s) are missing: ${missingFields.join(", ")}.`,
-      });
+    // Validate required fields
+    if (!email) {
+      return res.status(400).json({ error: "Email is a required field." });
     }
 
-    // Determine gender
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email format." });
+    }
+
+    // Validate phone number format
+    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+    if (!/^\+\d{7,15}$/.test(cleanPhone)) {
+      return res.status(400).json({ error: "Invalid phone number format." });
+    }
+
+    // Validate field lengths based on schema
+    if (firstName.length > 100) {
+      return res.status(400).json({ error: "First name must be 100 characters or less." });
+    }
+    if (lastName && lastName.length > 100) {
+      return res.status(400).json({ error: "Last name must be 100 characters or less." });
+    }
+    if (address && address.length > 255) {
+      return res.status(400).json({ error: "Address must be 255 characters or less." });
+    }
+    if (country && country.length > 100) {
+      return res.status(400).json({ error: "Country must be 100 characters or less." });
+    }
+    if (state && state.length > 100) {
+      return res.status(400).json({ error: "State must be 100 characters or less." });
+    }
+    if (prefix && prefix.length > 10) {
+      return res.status(400).json({ error: "Prefix must be 10 characters or less." });
+    }
+    if (city && city.length > 100) {
+      return res.status(400).json({ error: "City must be 100 characters or less." });
+    }
+    if (postalCode && postalCode.length > 20) {
+      return res.status(400).json({ error: "Postal code must be 20 characters or less." });
+    }
+
+    // Derive gender from prefix
     let gender = null;
     if (prefix) {
-      const normalized = prefix.trim().toLowerCase();
-      if (normalized === "mr") gender = "Male";
-      else if (normalized === "mrs") gender = "Female";
+      if (prefix === "Mr") gender = "Male";
+      else if (prefix === "Mrs" || prefix === "Ms") gender = "Female";
+      // "Dr" or other prefixes leave gender as null
+    }
+
+    // Validate labelId if provided
+    if (labelId) {
+      const labelCheck = await client.query(
+        `SELECT label_id FROM labels WHERE label_id = $1 AND user_id = $2`,
+        [labelId, userId]
+      );
+      if (labelCheck.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid label or not owned by user." });
+      }
+    }
+
+    // Validate websiteId if provided
+    if (websiteId) {
+      const websiteCheck = await client.query(
+        `SELECT website_id FROM websites WHERE website_id = $1 AND user_id = $2`,
+        [websiteId, userId]
+      );
+      if (websiteCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: "Website not found or doesn't belong to the current user.",
+        });
+      }
     }
 
     // Generate unsubscribe token
     const unsubscribeToken = crypto.randomBytes(20).toString("hex");
 
-    // Ensure website exists for this user
-    const websiteCheck = await client.query(
-      `SELECT website_id, contacts FROM websites WHERE website_id = $1 AND user_id = $2`,
-      [websiteId, userId]
-    );
-
-    if (websiteCheck.rows.length === 0) {
-      return res.status(404).json({
-        error: "Website not found or doesn't belong to the current user.",
-      });
-    }
-
-    // Insert new contact into contacts table
+    // Insert contact
     const insertQuery = `
       INSERT INTO contacts (
         user_id,
-        prefix,
-        phone_number,
         email,
+        phone_number,
         first_name,
         last_name,
         address,
-        city,
-        postal_code,
         country,
         state,
+        prefix,
+        city,
+        postal_code,
         gender,
         website_id,
-        unsubscribe_token,
-        tag
+        label_id,
+        unsubscribe_token
       )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *;
     `;
 
     const values = [
       userId,
-      prefix,
-      phoneNumber,
       email,
+      phoneNumber,
       firstName,
-      lastName,
-      address,
-      city,
-      postalCode,
-      country,
-      state,
+      lastName || null,
+      address || null,
+      country || null,
+      state || null,
+      prefix || null,
+      city || null,
+      postalCode || null,
       gender,
-      websiteId,
+      websiteId || null,
+      labelId || null,
       unsubscribeToken,
-      tag,
     ];
 
     const result = await client.query(insertQuery, values);
     const newContact = result.rows[0];
 
-    // Prepare full contact object for JSONB update
-    const contactData = {
-      contact_id: newContact.contact_id,
-      prefix: newContact.prefix,
-      first_name: newContact.first_name,
-      last_name: newContact.last_name,
-      email: newContact.email,
-      phone_number: newContact.phone_number,
-      address: newContact.address,
-      city: newContact.city,
-      postal_code: newContact.postal_code,
-      country: newContact.country,
-      state: newContact.state,
-      gender: newContact.gender,
-      tag: newContact.tag,
-      unsubscribe_token: newContact.unsubscribe_token,
-      unsubscribed: newContact.unsubscribed,
-      created_at: newContact.created_at,
-      updated_at: newContact.updated_at,
-    };
+    // Update website JSONB if websiteId is provided
+    if (websiteId) {
+      const contactData = {
+        contact_id: newContact.contact_id,
+        email: newContact.email,
+        phone_number: newContact.phone_number,
+        first_name: newContact.first_name,
+        last_name: newContact.last_name,
+        address: newContact.address,
+        country: newContact.country,
+        state: newContact.state,
+        prefix: newContact.prefix,
+        city: newContact.city,
+        postal_code: newContact.postal_code,
+        gender: newContact.gender,
+        label_id: newContact.label_id,
+        unsubscribed: newContact.unsubscribed,
+        unsubscribe_token: newContact.unsubscribe_token,
+        created_at: newContact.created_at,
+        updated_at: newContact.updated_at,
+      };
 
-    // Update website contacts JSONB column (append new contact)
-    const updateJsonQuery = `
-      UPDATE websites
-      SET contacts = 
-        CASE 
-          WHEN contacts IS NULL THEN jsonb_build_array($1::jsonb)
-          ELSE contacts || $1::jsonb
-        END,
-        updated_at = NOW()
-      WHERE website_id = $2;
-    `;
+      const updateJsonQuery = `
+        UPDATE websites
+        SET contacts = 
+          CASE 
+            WHEN contacts IS NULL THEN jsonb_build_array($1::jsonb)
+            ELSE contacts || $1::jsonb
+          END,
+          updated_at = NOW()
+        WHERE website_id = $2;
+      `;
 
-    await client.query(updateJsonQuery, [JSON.stringify(contactData), websiteId]);
+      await client.query(updateJsonQuery, [JSON.stringify(contactData), websiteId]);
+    }
 
     res.status(201).json({
-      message: "Contact created successfully and added to website contacts.",
+      message: "Contact created successfully.",
       contact: newContact,
     });
   } catch (error) {
@@ -202,7 +264,8 @@ const addViaCSV = async (req, res) => {
     }
 
     const userId = req.userId;
-    const { websiteId } = req.params; //Grab websiteId from URL params
+    const { websiteId } = req.params;
+    const { labelId } = req.body;
     const bucket = process.env.AWS_S3_BUCKET;
     const key = req.file.key;
     const contacts = [];
@@ -228,7 +291,7 @@ const addViaCSV = async (req, res) => {
 
           const contact = {
             user_id: userId,
-            website_id: websiteId, 
+            website_id: websiteId,
             prefix: null,
             phone_number: null,
             email: null,
@@ -240,7 +303,7 @@ const addViaCSV = async (req, res) => {
             country: null,
             state: null,
             gender: null,
-            tag: "New Client",
+            label_id: labelId || null, // Use provided labelId or null
             unsubscribe_token: unsubscribeToken,
           };
 
@@ -249,8 +312,8 @@ const addViaCSV = async (req, res) => {
             const index = parseInt(colIndex);
             if (isNaN(index) || !headers[index]) continue;
             const value = row[headers[index]];
-            if (fieldName) {
-              contact[fieldName] = value?.trim() || null;
+            if (fieldName && value !== undefined && value !== null && value.trim() !== "") {
+              contact[fieldName] = value.trim();
             }
           }
 
@@ -261,7 +324,13 @@ const addViaCSV = async (req, res) => {
             else if (normalized === "mrs") contact.gender = "Female";
           }
 
-          if (contact.first_name && contact.last_name) {
+          // Only add contact if at least one mapped field is non-null (excluding user_id, website_id, label_id, unsubscribe_token)
+          const hasData = Object.keys(contact).some(
+            (key) =>
+              !["user_id", "website_id", "label_id", "unsubscribe_token"].includes(key) &&
+              contact[key] !== null
+          );
+          if (hasData) {
             contacts.push(contact);
           }
         })
@@ -279,7 +348,7 @@ const addViaCSV = async (req, res) => {
       const insertQuery = `
         INSERT INTO contacts (
           user_id, website_id, prefix, phone_number, email, first_name, last_name,
-          address, city, postal_code, country, state, gender, tag, unsubscribe_token
+          address, city, postal_code, country, state, gender, label_id, unsubscribe_token
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (email, user_id) DO NOTHING
@@ -300,7 +369,7 @@ const addViaCSV = async (req, res) => {
         c.country,
         c.state,
         c.gender,
-        c.tag,
+        c.label_id,
         c.unsubscribe_token,
       ];
 
@@ -322,7 +391,7 @@ const addViaCSV = async (req, res) => {
         country: contact.country,
         state: contact.state,
         gender: contact.gender,
-        tag: contact.tag,
+        label_id: contact.label_id,
         unsubscribe_token: contact.unsubscribe_token,
       };
 
@@ -358,44 +427,48 @@ const addViaCSV = async (req, res) => {
   }
 };
 
-//Export contacts to PDF, CSV, or any format
+//Export contacts to PDF, CSV, TXT or Excel.
 const exportContacts = async (req, res) => {
   const userId = req.userId;
   const { websiteId } = req.params;
   const format = (req.query.format || "csv").toLowerCase();
-  const { contactIds } = req.body || {}; // selected IDs from frontend
+  const { contactIds } = req.body || {};
 
   if (!websiteId) {
     return res.status(400).json({ error: "websiteId is required as a route param." });
   }
 
-  if (!["csv", "pdf"].includes(format)) {
-    return res.status(400).json({ error: "Invalid format. Use 'csv' or 'pdf'." });
+  if (!["csv", "pdf", "txt", "xlsx"].includes(format)) {
+    return res.status(400).json({ error: "Invalid format. Use 'csv', 'pdf', 'txt', or 'xlsx'." });
   }
 
   try {
     let query;
     let params = [userId, websiteId];
 
-    // If specific contacts selected
     if (Array.isArray(contactIds) && contactIds.length > 0) {
       const placeholders = contactIds.map((_, i) => `$${i + 3}`).join(", ");
       query = `
-        SELECT contact_id, first_name, last_name, email, phone_number, prefix,
-               address, city, state, country, postal_code, tag, gender, unsubscribed, created_at
-        FROM contacts
-        WHERE user_id = $1 AND website_id = $2 AND contact_id IN (${placeholders})
-        ORDER BY created_at DESC
+        SELECT c.contact_id, c.first_name, c.last_name, c.email, c.phone_number, c.prefix,
+               c.address, c.city, c.state, c.country, c.postal_code,
+               COALESCE(l.name, 'No Label') AS label,
+               c.gender, c.unsubscribed, c.created_at
+        FROM contacts c
+        LEFT JOIN labels l ON c.label_id = l.label_id
+        WHERE c.user_id = $1 AND c.website_id = $2 AND c.contact_id IN (${placeholders})
+        ORDER BY c.created_at DESC
       `;
       params = [...params, ...contactIds];
     } else {
-      // Otherwise export all contacts for that website
       query = `
-        SELECT contact_id, first_name, last_name, email, phone_number, prefix,
-               address, city, state, country, postal_code, tag, gender, unsubscribed, created_at
-        FROM contacts
-        WHERE user_id = $1 AND website_id = $2
-        ORDER BY created_at DESC
+        SELECT c.contact_id, c.first_name, c.last_name, c.email, c.phone_number, c.prefix,
+               c.address, c.city, c.state, c.country, c.postal_code,
+               COALESCE(l.name, 'No Label') AS label,
+               c.gender, c.unsubscribed, c.created_at
+        FROM contacts c
+        LEFT JOIN labels l ON c.label_id = l.label_id
+        WHERE c.user_id = $1 AND c.website_id = $2
+        ORDER BY c.created_at DESC
       `;
     }
 
@@ -407,83 +480,76 @@ const exportContacts = async (req, res) => {
 
     // ---------- CSV ----------
     if (format === "csv") {
-      const fields = [
-        "contact_id",
-        "first_name",
-        "last_name",
-        "email",
-        "phone_number",
-        "prefix",
-        "address",
-        "city",
-        "state",
-        "country",
-        "postal_code",
-        "tag",
-        "gender",
-        "unsubscribed",
-        "created_at",
-      ];
+      const fields = Object.keys(contacts[0]);
       const parser = new Parser({ fields });
       const csvData = parser.parse(contacts);
-
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="contacts-${websiteId}.csv"`);
+      return res.status(200).send(csvData);
+    }
+
+    // ---------- TXT ----------
+    if (format === "txt") {
+      const lines = contacts.map(c =>
+        `${c.first_name || ""} ${c.last_name || ""} | ${c.email || ""} | ${c.phone_number || ""} | ${c.label || ""}`
+      );
+      const txtData = lines.join("\n");
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="contacts-${websiteId}.txt"`);
+      return res.status(200).send(txtData);
+    }
+
+    // ---------- XLSX ----------
+    if (format === "xlsx") {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Contacts");
+
+      worksheet.columns = Object.keys(contacts[0]).map((key) => ({
+        header: key.toUpperCase(),
+        key,
+        width: 20,
+      }));
+
+      worksheet.addRows(contacts);
+
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="contacts-${websiteId}.csv"`
+        `attachment; filename="contacts-${websiteId}.xlsx"`
       );
-      return res.status(200).send(csvData);
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+      return;
     }
 
     // ---------- PDF ----------
     if (format === "pdf") {
-      const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 30 });
+      const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 20 });
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="contacts-${websiteId}.pdf"`
-      );
+      res.setHeader("Content-Disposition", `attachment; filename="contacts-${websiteId}.pdf"`);
       doc.pipe(res);
 
       doc.fontSize(16).text("Contacts Export", { align: "center" });
-      doc.moveDown(0.5);
+      doc.moveDown(1);
 
+      const headers = ["First", "Last", "Email", "Phone", "City", "Country", "Label", "Unsub", "Created"];
+      const widths = [70, 70, 180, 90, 70, 70, 70, 50, 100];
       const startX = doc.page.margins.left;
-      let y = doc.y + 6;
-      const colWidths = {
-        first: 80,
-        last: 80,
-        email: 260,
-        phone: 100,
-        city: 90,
-        country: 90,
-        tag: 70,
-        unsub: 40,
-        created: 110,
-      };
+      let y = doc.y;
 
       doc.font("Helvetica-Bold").fontSize(9);
       let x = startX;
-      doc.text("First", x, y, { width: colWidths.first });
-      x += colWidths.first;
-      doc.text("Last", x, y, { width: colWidths.last });
-      x += colWidths.last;
-      doc.text("Email", x, y, { width: colWidths.email });
-      x += colWidths.email;
-      doc.text("Phone", x, y, { width: colWidths.phone });
-      x += colWidths.phone;
-      doc.text("City", x, y, { width: colWidths.city });
-      x += colWidths.city;
-      doc.text("Country", x, y, { width: colWidths.country });
-      x += colWidths.country;
-      doc.text("Tag", x, y, { width: colWidths.tag });
-      x += colWidths.tag;
-      doc.text("Unsub", x, y, { width: colWidths.unsub });
-      x += colWidths.unsub;
-      doc.text("Created", x, y, { width: colWidths.created });
-      y += 18;
+      headers.forEach((h, i) => {
+        doc.text(h, x, y, { width: widths[i] });
+        x += widths[i];
+      });
 
-      doc.font("Helvetica").fontSize(9);
+      y += 14;
+      doc.font("Helvetica").fontSize(8);
       const pageBottom = doc.page.height - doc.page.margins.bottom - 10;
 
       for (const c of contacts) {
@@ -493,25 +559,27 @@ const exportContacts = async (req, res) => {
         }
 
         x = startX;
-        doc.text(c.first_name || "", x, y, { width: colWidths.first });
-        x += colWidths.first;
-        doc.text(c.last_name || "", x, y, { width: colWidths.last });
-        x += colWidths.last;
-        doc.text(c.email || "", x, y, { width: colWidths.email });
-        x += colWidths.email;
-        doc.text(c.phone_number || "", x, y, { width: colWidths.phone });
-        x += colWidths.phone;
-        doc.text(c.city || "", x, y, { width: colWidths.city });
-        x += colWidths.city;
-        doc.text(c.country || "", x, y, { width: colWidths.country });
-        x += colWidths.country;
-        doc.text(c.tag || "", x, y, { width: colWidths.tag });
-        x += colWidths.tag;
-        doc.text(c.unsubscribed ? "Yes" : "No", x, y, { width: colWidths.unsub });
-        x += colWidths.unsub;
-        const created = c.created_at ? new Date(c.created_at).toLocaleString() : "";
-        doc.text(created, x, y, { width: colWidths.created });
-        y += 16;
+        const values = [
+          c.first_name || "",
+          c.last_name || "",
+          c.email || "",
+          c.phone_number || "",
+          c.city || "",
+          c.country || "",
+          c.label || "",
+          c.unsubscribed ? "Yes" : "No",
+          c.created_at ? new Date(c.created_at).toLocaleString() : "",
+        ];
+
+        values.forEach((v, i) => {
+          doc.text(String(v), x, y, {
+            width: widths[i],
+            ellipsis: true,
+          });
+          x += widths[i];
+        });
+
+        y += 12;
       }
 
       doc.end();
@@ -522,6 +590,7 @@ const exportContacts = async (req, res) => {
     return res.status(500).json({ error: "Failed to export contacts." });
   }
 };
+
 
 //Fetch Website contacts
 const getWebsiteCOntacts = async (req, res) => {
@@ -540,99 +609,220 @@ const getWebsiteCOntacts = async (req, res) => {
   }
 }
 
-
-// Update a contact
+// Update a contact 
 const updateContact = async (req, res) => {
   const userId = req.userId;
+
   try {
     const { id } = req.params;
     const {
-      phone_number,
       email,
-      first_name,
-      last_name,
-      website,
+      phoneNumber,
+      firstName,
+      lastName,
       address,
       country,
       state,
-      gender,
       prefix,
       city,
-      postal_code,
-      tag,
-      website_id,
+      postalCode,
+      labelId,
+      websiteId,
     } = req.body;
 
-    // Check existing contact
+    // Make sure something was sent
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({ error: "No fields provided for update." });
+    }
+
+    // Fetch existing contact
     const existing = await client.query(
       `SELECT * FROM contacts WHERE contact_id = $1 AND user_id = $2`,
       [id, userId]
     );
     if (existing.rows.length === 0) {
-      return res.status(404).json({ error: "Contact not found or you do not have permission to update it" });
+      return res
+        .status(404)
+        .json({ error: "Contact not found or you do not have permission to update it." });
+    }
+    const existingContact = existing.rows[0];
+
+    // Validate only provided fields
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && !emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email format." });
     }
 
-    // Check for changes
-    const hasChanges = Object.keys(req.body).some(
-      (key) => req.body[key] !== null && req.body[key] !== existing.rows[0][key]
-    );
-    if (!hasChanges) {
-      return res.status(200).json({ message: "No changes detected", contact: existing.rows[0] });
+    if (phoneNumber) {
+      const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+      if (!/^\+\d{7,15}$/.test(cleanPhone)) {
+        return res.status(400).json({ error: "Invalid phone number format." });
+      }
     }
+
+    if (firstName && firstName.length > 100)
+      return res.status(400).json({ error: "First name must be 100 characters or less." });
+    if (lastName && lastName.length > 100)
+      return res.status(400).json({ error: "Last name must be 100 characters or less." });
+    if (address && address.length > 255)
+      return res.status(400).json({ error: "Address must be 255 characters or less." });
+    if (country && country.length > 100)
+      return res.status(400).json({ error: "Country must be 100 characters or less." });
+    if (state && state.length > 100)
+      return res.status(400).json({ error: "State must be 100 characters or less." });
+    if (prefix && prefix.length > 10)
+      return res.status(400).json({ error: "Prefix must be 10 characters or less." });
+    if (city && city.length > 100)
+      return res.status(400).json({ error: "City must be 100 characters or less." });
+    if (postalCode && postalCode.length > 20)
+      return res.status(400).json({ error: "Postal code must be 20 characters or less." });
+
+    // Validate labelId and websiteId if provided
+    if (labelId) {
+      const labelCheck = await client.query(
+        `SELECT label_id FROM labels WHERE label_id = $1 AND user_id = $2`,
+        [labelId, userId]
+      );
+      if (labelCheck.rows.length === 0)
+        return res.status(400).json({ error: "Invalid label or not owned by user." });
+    }
+
+    if (websiteId) {
+      const websiteCheck = await client.query(
+        `SELECT website_id FROM websites WHERE website_id = $1 AND user_id = $2`,
+        [websiteId, userId]
+      );
+      if (websiteCheck.rows.length === 0)
+        return res.status(404).json({ error: "Website not found or doesn't belong to the user." });
+    }
+
+    // Derive gender if prefix provided
+    let gender = existingContact.gender;
+    if (prefix) {
+      if (prefix === "Mr") gender = "Male";
+      else if (prefix === "Mrs" || prefix === "Ms") gender = "Female";
+      else gender = null;
+    }
+
+    // Dynamically build update query
+    const fields = {
+      email,
+      phone_number: phoneNumber,
+      first_name: firstName,
+      last_name: lastName,
+      address,
+      country,
+      state,
+      prefix,
+      city,
+      postal_code: postalCode,
+      label_id: labelId,
+      website_id: websiteId,
+      gender,
+    };
+
+    const updates = [];
+    const values = [];
+    let i = 1;
+
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) {
+        updates.push(`${key} = $${i}`);
+        values.push(value);
+        i++;
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "No valid fields provided for update." });
+    }
+
+    values.push(id, userId);
 
     await client.query("BEGIN");
-    const result = await client.query(
-      `UPDATE contacts
-       SET phone_number = COALESCE($1, phone_number),
-           email = COALESCE($2, email),
-           first_name = COALESCE($3, first_name),
-           last_name = COALESCE($4, last_name),
-           website = COALESCE($5, website),
-           address = COALESCE($6, address),
-           country = COALESCE($7, country),
-           state = COALESCE($8, state),
-           gender = COALESCE($9, gender),
-           prefix = COALESCE($10, prefix),
-           city = COALESCE($11, city),
-           postal_code = COALESCE($12, postal_code),
-           tag = COALESCE($13, tag),
-           website_id = COALESCE($14, website_id),
-           updated_at = NOW()
-       WHERE contact_id = $15 AND user_id = $16
-       RETURNING *`,
-      [
-        phone_number,
-        email,
-        first_name,
-        last_name,
-        website,
-        address,
-        country,
-        state,
-        gender,
-        prefix,
-        city,
-        postal_code,
-        tag,
-        website_id,
-        id,
-        userId,
-      ]
-    );
-    await client.query("COMMIT");
+
+    const updateQuery = `
+      UPDATE contacts
+      SET ${updates.join(", ")}, updated_at = NOW()
+      WHERE contact_id = $${i++} AND user_id = $${i}
+      RETURNING *;
+    `;
+
+    const result = await client.query(updateQuery, values);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Contact not found or you do not have permission to update it" });
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Contact not found or not owned by user." });
     }
 
+    const updatedContact = result.rows[0];
+
+    // Update website JSONB if relevant
+    const targetWebsiteId = websiteId || existingContact.website_id;
+    if (targetWebsiteId) {
+      const contactData = {
+        contact_id: updatedContact.contact_id,
+        email: updatedContact.email,
+        phone_number: updatedContact.phone_number,
+        first_name: updatedContact.first_name,
+        last_name: updatedContact.last_name,
+        address: updatedContact.address,
+        country: updatedContact.country,
+        state: updatedContact.state,
+        prefix: updatedContact.prefix,
+        city: updatedContact.city,
+        postal_code: updatedContact.postal_code,
+        gender: updatedContact.gender,
+        label_id: updatedContact.label_id,
+        unsubscribed: updatedContact.unsubscribed,
+        unsubscribe_token: updatedContact.unsubscribe_token,
+        created_at: updatedContact.created_at,
+        updated_at: updatedContact.updated_at,
+      };
+
+      await client.query(
+        `
+        UPDATE websites
+        SET contacts = (
+          SELECT jsonb_agg(
+            CASE
+              WHEN c->>'contact_id' = $1 THEN $2::jsonb
+              ELSE c
+            END
+          )
+          FROM jsonb_array_elements(contacts) c
+        ),
+        updated_at = NOW()
+        WHERE website_id = $3 AND user_id = $4;
+      `,
+        [
+          updatedContact.contact_id.toString(),
+          JSON.stringify(contactData),
+          targetWebsiteId,
+          userId,
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
 
     res.status(200).json({
       message: "Contact updated successfully.",
-      contact: result.rows[0],
+      contact: updatedContact,
     });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("Error updating contact:", error);
+
+    if (error.code === "23505") {
+      let field = "field";
+      if (error.detail?.includes("email")) field = "Email";
+      if (error.detail?.includes("phone_number")) field = "Phone number";
+      return res.status(400).json({
+        error: `${field} is already taken. Please use a different one.`,
+      });
+    }
+
     res.status(500).json({ error: "Failed to update contact" });
   }
 };
@@ -700,10 +890,9 @@ const deleteMultiple = async (req, res) => {
   }
 };
 
-
-
 module.exports = {
   getContacts,
+  filterByLabel,
   createContact,
   addViaCSV,
   exportContacts,

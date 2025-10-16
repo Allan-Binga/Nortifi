@@ -11,17 +11,20 @@ import {
   Calendar,
   Send,
   Save,
-  X,
+  ChevronDown,
 } from "lucide-react";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { backend } from "../server";
 import { notify } from "../utils/toast";
 import { useFetchSMTPs } from "../utils/smtp";
+import { useWebsite } from "../context/WebsiteContext";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 
 function NewEmail() {
+  const { activeWebsite } = useWebsite();
+  const { fetchSMTPs } = useFetchSMTPs()
   const [currentTab, setCurrentTab] = useState(0);
   const [contacts, setContacts] = useState([]);
   const [emailServers, setEmailServers] = useState([]);
@@ -53,25 +56,47 @@ function NewEmail() {
     gender: "",
     website: "",
   });
-  const navigate = useNavigate()
-  const [selectedContacts, setSelectedContacts] = useState([]); // New state for selected contact IDs
-  const [searchParams] = useSearchParams()
-  const draftId = searchParams.get("draftId")
+  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [serverDropdownOpen, setServerDropdownOpen] = useState(false);
+  const [genderDropdownOpen, setGenderDropdownOpen] = useState(false);
+  const [websiteDropdownOpen, setWebsiteDropdownOpen] = useState(false);
+  const [timezoneDropdownOpen, setTimezoneDropdownOpen] = useState(false);
+  const [recurringDropdownOpen, setRecurringDropdownOpen] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get("draftId");
+
+  const inputStyles = `w-full px-4 py-3 rounded-xs border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 bg-white text-base font-medium placeholder-gray-400 transition duration-200`;
+
+  const timezones = [
+    { value: "Africa/Nairobi", label: "Africa/Nairobi (EAT)" },
+    { value: "America/New_York", label: "America/New_York (EST)" },
+    { value: "America/Los_Angeles", label: "America/Los_Angeles (PST)" },
+    { value: "Europe/London", label: "Europe/London (GMT)" },
+    { value: "Asia/Tokyo", label: "Asia/Tokyo (JST)" },
+    { value: "UTC", label: "UTC" },
+  ];
+
+  const recurringOptions = [
+    { value: "", label: "No Recurring" },
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "monthly", label: "Monthly" },
+  ];
 
   useEffect(() => {
     const fetchDraft = async () => {
       if (!draftId) return;
       try {
         const { data } = await axios.get(`${backend}/emails/campaign/${draftId}`, {
-          withCredentials: true
-        })
-
+          withCredentials: true,
+        });
         setEmailData({
           label: data.label || "",
           subject: data.subject || "",
           body: data.body || "",
           fromName: data.from_name || "",
-          fromEmail: data.from_email || "",   // add this
+          fromEmail: data.from_email || "",
           replyToEmail: data.reply_to_email || "",
           ccEmails: data.cc?.join(", ") || "",
           bccEmails: data.bcc?.join(", ") || "",
@@ -82,32 +107,27 @@ function NewEmail() {
           timezone: data.timezone || "Africa/Nairobi",
           recurring_rule: data.recurring_rule || "",
           forceSend: false,
-          footerHtml: data.footer_html || "",
           footerLocations: data.footer_locations || [],
           tags: data.tags || [],
           exclude_unsubscribed: true,
           smtpConfigId: data.smtp_config_id || "",
           campaignId: data.campaign_id,
           status: data.status || "draft",
-          isDraft: data.is_draft ?? true
-        })
-
+          isDraft: data.is_draft ?? true,
+        });
       } catch (error) {
-        console.error("Error fetching draft:", err);
+        console.error("Error fetching draft:", error);
       }
-    }
+    };
+    fetchDraft();
+  }, [draftId]);
 
-    fetchDraft()
-  }, [draftId])
-
-  // Fetch SMTP servers for clients to select
   useEffect(() => {
+    if (!activeWebsite) return;
     const loadSMTPs = async () => {
       try {
-        const servers = await useFetchSMTPs();
+        const servers = await fetchSMTPs();
         setEmailServers(servers);
-
-        // Auto-select the first server if available
         if (servers.length > 0) {
           setSelectedServer(servers[0].config_id);
         }
@@ -115,16 +135,14 @@ function NewEmail() {
         console.error("Error fetching SMTP servers:", error);
       }
     };
-
     loadSMTPs();
-  }, []);
+  }, [activeWebsite]);
 
-  // Fetch contacts on mount
   useEffect(() => {
     const fetchContacts = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(`${backend}/contacts/all-contacts`, {
+        const response = await axios.get(`${backend}/contacts/all-contacts/website/${activeWebsite.website_id}`, {
           withCredentials: true,
         });
         setContacts(response.data);
@@ -138,7 +156,6 @@ function NewEmail() {
     fetchContacts();
   }, []);
 
-  // Sync selectedContacts and recipients when recipientMode or exclude_unsubscribed changes
   useEffect(() => {
     if (emailData.recipientMode === "bulk") {
       const filteredContacts = emailData.exclude_unsubscribed
@@ -157,7 +174,6 @@ function NewEmail() {
     }
   }, [emailData.recipientMode, emailData.exclude_unsubscribed, contacts]);
 
-  // Handle individual checkbox toggle
   const handleContactToggle = (contactId) => {
     setSelectedContacts((prev) => {
       const isSelected = prev.includes(contactId);
@@ -254,7 +270,6 @@ function NewEmail() {
     if (!validateEmailData()) {
       return;
     }
-
     setLoading(true);
     try {
       const payload = {
@@ -292,19 +307,16 @@ function NewEmail() {
         footerLocations: emailData.footerLocations,
         smtpConfigId: selectedServer,
       };
-
       const response = await axios.post(
         `${backend}/emails/smtp/send-email`,
         payload,
         { withCredentials: true }
       );
-
       notify.success(
         emailData.send_type === "scheduled"
           ? "Email scheduled successfully!"
           : "Email sent successfully!"
       );
-
       setEmailData({
         label: "",
         subject: "",
@@ -325,10 +337,10 @@ function NewEmail() {
         exclude_unsubscribed: true,
         smtpConfigId: "",
       });
-      setShowSpinner(true)
+      setShowSpinner(true);
       setTimeout(() => {
-        navigate("/emails")
-      }, 2000)
+        navigate("/emails");
+      }, 2000);
     } catch (error) {
       console.error("Send Email Error:", error);
       const errorMessage =
@@ -360,7 +372,7 @@ function NewEmail() {
             .map((e) => e.trim())
             .filter((e) => e.length > 0)
           : [],
-        saveAsDraft: true, // flag 
+        saveAsDraft: true,
         send_type: emailData.send_type,
         scheduled_at: emailData.scheduled_at || null,
         timezone: emailData.timezone,
@@ -373,20 +385,16 @@ function NewEmail() {
         footerLocations: emailData.footerLocations,
         smtpConfigId: selectedServer,
       };
-      console.log(payload)
-
       const response = await axios.post(
         `${backend}/emails/smtp/send-email`,
         payload,
         { withCredentials: true }
       );
-
       notify.success("Draft saved successfully!");
       setShowSpinner(true);
       setTimeout(() => {
-        navigate("/contacts")
-      }, 2000)
-
+        navigate("/home");
+      }, 2000);
       setCurrentTab(0);
     } catch (error) {
       console.error("Save Draft Error:", error);
@@ -418,10 +426,10 @@ function NewEmail() {
       exclude_unsubscribed: true,
     });
     notify.info("Changes discarded");
-    setShowSpinner(true)
+    setShowSpinner(true);
     setTimeout(() => {
-      navigate("/home")
-    }, 2000)
+      navigate("/home");
+    }, 2000);
   };
 
   const renderAdvancedTab = () => (
@@ -431,23 +439,42 @@ function NewEmail() {
         <label className="block text-xs font-semibold text-slate-700 mb-2">
           Select SMTP Server
         </label>
-        <select
-          value={selectedServer}
-          onChange={(e) => setSelectedServer(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-           focus:outline-none focus:ring-2 focus:ring-[#061338] 
-           focus:border-transparent transition duration-200 bg-white"
-        >
-          {emailServers.length > 0 ? (
-            emailServers.map((server) => (
-              <option key={server.config_id} value={server.config_id}>
-                {server.name || server.smtp_user}
-              </option>
-            ))
-          ) : (
-            <option disabled>No servers available</option>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setServerDropdownOpen(!serverDropdownOpen)}
+            className={`${inputStyles} flex justify-between items-center text-left w-full`}
+          >
+            {emailServers.find((server) => server.config_id === selectedServer)?.name ||
+              "Select SMTP Server"}
+            <ChevronDown
+              className={`text-slate-500 transition-transform duration-300 ${serverDropdownOpen ? "rotate-180" : "rotate-0"}`}
+              size={18}
+            />
+          </button>
+          {serverDropdownOpen && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg max-h-60 overflow-y-auto">
+              {emailServers.length > 0 ? (
+                emailServers.map((server) => (
+                  <div
+                    key={server.config_id}
+                    onClick={() => {
+                      setSelectedServer(server.config_id);
+                      setServerDropdownOpen(false);
+                    }}
+                    className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                  >
+                    {server.name || server.smtp_user}
+                  </div>
+                ))
+              ) : (
+                <div className="px-4 py-2 text-base font-medium text-slate-500">
+                  No servers available
+                </div>
+              )}
+            </div>
           )}
-        </select>
+        </div>
       </div>
 
       {/* From Name */}
@@ -460,9 +487,7 @@ function NewEmail() {
           value={emailData.fromName}
           onChange={(e) => handleInputChange("fromName", e.target.value)}
           placeholder="Pioneer Writers TEAS Dept."
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
-                 focus:border-transparent transition duration-200"
+          className={inputStyles}
         />
       </div>
 
@@ -476,9 +501,7 @@ function NewEmail() {
           value={emailData.replyToEmail}
           onChange={(e) => handleInputChange("replyToEmail", e.target.value)}
           placeholder="orders@nortifi.com"
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
-                 focus:border-transparent transition duration-200"
+          className={inputStyles}
         />
       </div>
 
@@ -495,9 +518,7 @@ function NewEmail() {
           value={emailData.ccEmails}
           onChange={(e) => handleInputChange("ccEmails", e.target.value)}
           placeholder="support@nortifi.com, info@nortifi.com"
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
-                 focus:border-transparent transition duration-200"
+          className={inputStyles}
         />
       </div>
 
@@ -514,61 +535,27 @@ function NewEmail() {
           value={emailData.bccEmails}
           onChange={(e) => handleInputChange("bccEmails", e.target.value)}
           placeholder="admin@nortifi.com, backup@nortifi.com"
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                 focus:outline-none focus:ring-2 focus:ring-[#061338] 
-                 focus:border-transparent transition duration-200"
+          className={inputStyles}
         />
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between">
-        {/* Previous = Cancel-style */}
-        <button
-          onClick={handlePrevious}
-          className="px-8 py-3 cursor-pointer rounded-md 
-             bg-white text-[#061338] border border-[#061338] 
-             text-base flex items-center gap-2
-             hover:bg-slate-50 transition duration-200"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Previous
-        </button>
+      <div className="flex justify-end">
 
-        {/* Next = Primary-style */}
         <button
           onClick={handleNext}
-          className="px-8 py-3 cursor-pointer rounded-md 
-             bg-[#061338] text-white 
-             text-base flex items-center gap-2
-             hover:bg-[#0a1f5c] transition duration-200"
+          className="px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700"
         >
           Next
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
-
     </div>
   );
-
+  
 
   const renderEmailTab = () => (
     <div className="space-y-6">
-      {/* Label */}
-      <div>
-        <label className="block text-xs font-bold text-slate-700 mb-2">
-          Label <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={emailData.label}
-          onChange={(e) => handleInputChange("label", e.target.value)}
-          placeholder="e.g Welcome onboard"
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-               focus:outline-none focus:ring-2 focus:ring-teal-500 
-               focus:border-transparent transition duration-200"
-        />
-      </div>
-
       {/* Subject */}
       <div>
         <label className="block text-xs font-semibold text-slate-700 mb-2">
@@ -579,9 +566,7 @@ function NewEmail() {
           value={emailData.subject}
           onChange={(e) => handleInputChange("subject", e.target.value)}
           placeholder="e.g Onboarding"
-          className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200   
-               focus:outline-none focus:ring-2 focus:ring-teal-500 
-               focus:border-transparent transition duration-200"
+          className={inputStyles}
         />
       </div>
 
@@ -590,18 +575,15 @@ function NewEmail() {
         <label className="block text-xs font-semibold text-slate-700 mb-2">
           Body <span className="text-red-500">*</span>
         </label>
-        <div
-          className="rounded-lg shadow-sm border border-slate-200
-             focus-within:outline-none focus-within:ring-2 focus-within:ring-teal-500 
-             focus-within:border-transparent transition duration-200"
-        >
+
+        <div className="rounded-sm mb-6"> 
           <ReactQuill
             theme="snow"
             value={emailData.body}
             onChange={(content) => handleInputChange("body", content)}
             placeholder="Hello John Doe, Welcome to Nortifi!"
-            className="bg-white rounded-md min-h-[150px]"
-            style={{ height: "150px" }}
+            className="bg-white rounded-xs min-h-[150px]"
+            style={{ height: "200px" }}
             modules={{
               toolbar: [
                 [{ header: [1, 2, 3, false] }],
@@ -615,15 +597,20 @@ function NewEmail() {
         </div>
       </div>
 
-      {/* Next button */}
-      <div className="flex justify-end">
+
+      {/* Navigation Buttons */}
+      <div className="flex justify-between mt-20">
+        <button
+          onClick={handlePrevious}
+          disabled={currentTab === 0}
+          className={`px-4 py-3 rounded-xs cursor-pointer bg-white border border-blue-500 text-blue-600 text-base font-semibold flex items-center gap-2 hover:bg-blue-100 ${currentTab === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Previous
+        </button>
         <button
           onClick={handleNext}
-          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
-             bg-gradient-to-r from-teal-500 to-teal-600 
-             text-white text-base flex items-center gap-2
-             hover:from-teal-600 hover:to-teal-700 
-             transition duration-200"
+          className="px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700"
         >
           Next
           <ArrowRight className="w-5 h-5" />
@@ -645,18 +632,18 @@ function NewEmail() {
       <div className="flex space-x-4 mb-6">
         <button
           onClick={() => handleInputChange("recipientMode", "individual")}
-          className={`px-6 py-3 rounded-md shadow-sm font-medium text-base transition duration-200 ${emailData.recipientMode === "individual"
-            ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
-            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          className={`px-6 py-3 rounded-xs font-medium text-base transition duration-200 ${emailData.recipientMode === "individual"
+            ? "bg-blue-600 text-white"
+            : "bg-blue-100 text-slate-700 hover:bg-blue-200"
             }`}
         >
           Individually
         </button>
         <button
           onClick={() => handleInputChange("recipientMode", "bulk")}
-          className={`px-6 py-3 rounded-md shadow-sm font-medium text-base transition duration-200 ${emailData.recipientMode === "bulk"
-            ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
-            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          className={`px-6 py-3 rounded-xs font-medium text-base transition duration-200 ${emailData.recipientMode === "bulk"
+            ? "bg-blue-600 text-white"
+            : "bg-blue-100 text-slate-700 hover:bg-blue-200"
             }`}
         >
           Mass Sending
@@ -665,58 +652,89 @@ function NewEmail() {
 
       {/* Recipients */}
       <div>
-        {/* Info Label */}
         <p className="text-xs text-slate-500 mb-2">
           Make sure the contacts with the emails you want to use are added
           first.{" "}
-          <a href="/add-contact" className="text-teal-500 hover:underline">
+          <a href="/add-contact" className="text-blue-600 hover:underline">
             Go to Contacts
           </a>
         </p>
-
         <label className="block text-xs font-semibold text-slate-700 mb-2">
           Recipients <span className="text-red-500">*</span>
         </label>
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-4 mb-4">
-          {/* Gender Filter */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
               Gender
             </label>
-            <select
-              value={filters.gender}
-              onChange={(e) => setFilters((prev) => ({ ...prev, gender: e.target.value }))}
-              className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">All</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setGenderDropdownOpen(!genderDropdownOpen)}
+                className={`${inputStyles} flex justify-between items-center text-left w-full`}
+              >
+                {filters.gender || "All"}
+                <ChevronDown
+                  className={`text-slate-500 transition-transform duration-300 ${genderDropdownOpen ? "rotate-180" : "rotate-0"}`}
+                  size={18}
+                />
+              </button>
+              {genderDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg">
+                  {["All", "Male", "Female"].map((option) => (
+                    <div
+                      key={option}
+                      onClick={() => {
+                        setFilters((prev) => ({ ...prev, gender: option === "All" ? "" : option }));
+                        setGenderDropdownOpen(false);
+                      }}
+                      className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                    >
+                      {option}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* Website Filter */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
               Website
             </label>
-            <select
-              value={filters.website}
-              onChange={(e) => setFilters((prev) => ({ ...prev, website: e.target.value }))}
-              className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">All</option>
-              {Array.from(new Set(contacts.map((c) => c.website))).map((site) => (
-                <option key={site} value={site}>
-                  {site}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setWebsiteDropdownOpen(!websiteDropdownOpen)}
+                className={`${inputStyles} flex justify-between items-center text-left w-full`}
+              >
+                {filters.website || "All"}
+                <ChevronDown
+                  className={`text-slate-500 transition-transform duration-300 ${websiteDropdownOpen ? "rotate-180" : "rotate-0"}`}
+                  size={18}
+                />
+              </button>
+              {websiteDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg max-h-60 overflow-y-auto">
+                  {["All", ...new Set(contacts.map((c) => c.website))].map((site) => (
+                    <div
+                      key={site}
+                      onClick={() => {
+                        setFilters((prev) => ({ ...prev, website: site === "All" ? "" : site }));
+                        setWebsiteDropdownOpen(false);
+                      }}
+                      className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                    >
+                      {site}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-
-        <div className="border border-slate-200 rounded-lg shadow-sm">
+        <div className="border border-blue-300 rounded-xs shadow-sm">
           {loading ? (
             <p className="p-4 text-slate-500 text-sm">Loading contacts...</p>
           ) : contacts.length === 0 ? (
@@ -727,7 +745,7 @@ function NewEmail() {
             <div className="max-h-64 overflow-y-auto">
               <table className="w-full text-sm text-slate-700">
                 <thead>
-                  <tr className="bg-slate-50 sticky top-0">
+                  <tr className="bg-blue-50 sticky top-0">
                     <th className="px-4 py-3 text-left font-semibold">
                       <input
                         type="checkbox"
@@ -769,8 +787,7 @@ function NewEmail() {
                             }));
                           }
                         }}
-                        className="w-4 h-4 text-teal-500 border-slate-200 rounded 
-                                 focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+                        className="w-4 h-4 text-blue-600 border-blue-300 rounded focus:ring-2 focus:ring-blue-100"
                       />
                     </th>
                     <th className="px-4 py-3 text-left font-semibold">First Name</th>
@@ -785,28 +802,19 @@ function NewEmail() {
                       (c) =>
                         !emailData.exclude_unsubscribed || !c.unsubscribed
                     )
-
-                    .filter((c) =>
-                      filters.gender ? c.gender === filters.gender : true
-                    )
-
-                    .filter((c) =>
-                      filters.website ? c.website === filters.website : true
-                    )
+                    .filter((c) => (filters.gender ? c.gender === filters.gender : true))
+                    .filter((c) => (filters.website ? c.website === filters.website : true))
                     .map((contact) => (
                       <tr
                         key={contact.contact_id}
-                        className="border-t border-slate-200 hover:bg-slate-50"
+                        className="border-t border-blue-300 hover:bg-blue-50"
                       >
                         <td className="px-4 py-3">
                           <input
                             type="checkbox"
                             checked={selectedContacts.includes(contact.contact_id)}
-                            onChange={() =>
-                              handleContactToggle(contact.contact_id)
-                            }
-                            className="w-4 h-4 text-teal-500 border-slate-200 rounded 
-                                     focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+                            onChange={() => handleContactToggle(contact.contact_id)}
+                            className="w-4 h-4 text-blue-600 border-blue-300 rounded focus:ring-2 focus:ring-blue-100"
                           />
                         </td>
                         <td className="px-4 py-3">{contact.first_name}</td>
@@ -828,11 +836,8 @@ function NewEmail() {
           type="checkbox"
           id="exclude_unsubscribed"
           checked={emailData.exclude_unsubscribed}
-          onChange={(e) =>
-            handleInputChange("exclude_unsubscribed", e.target.checked)
-          }
-          className="w-4 h-4 text-teal-500 border-slate-200 rounded 
-                   focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
+          onChange={(e) => handleInputChange("exclude_unsubscribed", e.target.checked)}
+          className="w-4 h-4 text-blue-600 border-blue-300 rounded focus:ring-2 focus:ring-blue-100"
         />
         <label
           htmlFor="exclude_unsubscribed"
@@ -846,22 +851,14 @@ function NewEmail() {
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-8 py-3 cursor-pointer rounded-md shadow-md 
-                   bg-gradient-to-r from-slate-500 to-slate-600 
-                   text-white text-base flex items-center gap-2
-                   hover:from-slate-600 hover:to-slate-700 
-                   transition duration-200"
+          className="px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700"
         >
           <ArrowLeft className="w-5 h-5" />
           Previous
         </button>
         <button
           onClick={handleNext}
-          className="px-8 py-3 cursor-pointer rounded-md shadow-md 
-                   bg-gradient-to-r from-teal-500 to-teal-600 
-                   text-white text-base flex items-center gap-2
-                   hover:from-teal-600 hover:to-teal-700 
-                   transition duration-200"
+          className="px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700"
         >
           Next
           <ArrowRight className="w-5 h-5" />
@@ -869,7 +866,6 @@ function NewEmail() {
       </div>
     </div>
   );
-
 
   const renderSchedulingTab = () => (
     <div className="space-y-6">
@@ -881,18 +877,18 @@ function NewEmail() {
         <div className="flex space-x-4">
           <button
             onClick={() => handleInputChange("send_type", "immediate")}
-            className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${emailData.send_type === "immediate"
-              ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            className={`px-6 py-3 rounded-xs font-medium text-base transition duration-200 ${emailData.send_type === "immediate"
+              ? "bg-blue-600 text-white"
+              : "bg-blue-100 text-slate-700 hover:bg-blue-200"
               }`}
           >
             Send Immediately
           </button>
           <button
             onClick={() => handleInputChange("send_type", "scheduled")}
-            className={`px-6 py-3 rounded-lg shadow-sm font-medium text-base transition duration-200 ${emailData.send_type === "scheduled"
-              ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            className={`px-6 py-3 rounded-xs font-medium text-base transition duration-200 ${emailData.send_type === "scheduled"
+              ? "bg-blue-600 text-white"
+              : "bg-blue-100 text-slate-700 hover:bg-blue-200"
               }`}
           >
             Schedule
@@ -910,12 +906,8 @@ function NewEmail() {
             <input
               type="datetime-local"
               value={emailData.scheduled_at}
-              onChange={(e) =>
-                handleInputChange("scheduled_at", e.target.value)
-              }
-              className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                       focus:outline-none focus:ring-2 focus:ring-teal-500 
-                       focus:border-transparent transition duration-200"
+              onChange={(e) => handleInputChange("scheduled_at", e.target.value)}
+              className={inputStyles}
             />
           </div>
 
@@ -924,22 +916,37 @@ function NewEmail() {
             <label className="block text-xs font-semibold text-slate-700 mb-2">
               Timezone
             </label>
-            <select
-              value={emailData.timezone}
-              onChange={(e) => handleInputChange("timezone", e.target.value)}
-              className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                       focus:outline-none focus:ring-2 focus:ring-teal-500 
-                       focus:border-transparent transition duration-200"
-            >
-              <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
-              <option value="America/New_York">America/New_York (EST)</option>
-              <option value="America/Los_Angeles">
-                America/Los_Angeles (PST)
-              </option>
-              <option value="Europe/London">Europe/London (GMT)</option>
-              <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
-              <option value="UTC">UTC</option>
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setTimezoneDropdownOpen(!timezoneDropdownOpen)}
+                className={`${inputStyles} flex justify-between items-center text-left w-full`}
+              >
+                {timezones.find((tz) => tz.value === emailData.timezone)?.label ||
+                  "Select Timezone"}
+                <ChevronDown
+                  className={`text-slate-500 transition-transform duration-300 ${timezoneDropdownOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                  size={18}
+                />
+              </button>
+              {timezoneDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg max-h-60 overflow-y-auto">
+                  {timezones.map((tz) => (
+                    <div
+                      key={tz.value}
+                      onClick={() => {
+                        handleInputChange("timezone", tz.value);
+                        setTimezoneDropdownOpen(false);
+                      }}
+                      className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                    >
+                      {tz.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Recurring Rule */}
@@ -947,41 +954,40 @@ function NewEmail() {
             <label className="block text-xs font-semibold text-slate-700 mb-2">
               Recurring Rule
             </label>
-            <select
-              value={emailData.recurring_rule}
-              onChange={(e) =>
-                handleInputChange("recurring_rule", e.target.value)
-              }
-              className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                       focus:outline-none focus:ring-2 focus:ring-teal-500 
-                       focus:border-transparent transition duration-200"
-            >
-              <option value="">No Recurring</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setRecurringDropdownOpen(!recurringDropdownOpen)}
+                className={`${inputStyles} flex justify-between items-center text-left w-full`}
+              >
+                {recurringOptions.find((opt) => opt.value === emailData.recurring_rule)
+                  ?.label || "Select Recurring Rule"}
+                <ChevronDown
+                  className={`text-slate-500 transition-transform duration-300 ${recurringDropdownOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                  size={18}
+                />
+              </button>
+              {recurringDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-blue-300 rounded-xs shadow-lg max-h-60 overflow-y-auto">
+                  {recurringOptions.map((opt) => (
+                    <div
+                      key={opt.value}
+                      onClick={() => {
+                        handleInputChange("recurring_rule", opt.value);
+                        setRecurringDropdownOpen(false);
+                      }}
+                      className="px-4 py-2 text-base font-medium text-slate-700 hover:bg-blue-50 cursor-pointer"
+                    >
+                      {opt.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
-
-      {/* Force Send Checkbox
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="forceSend"
-          checked={emailData.forceSend}
-          onChange={(e) => handleInputChange("forceSend", e.target.checked)}
-          className="w-4 h-4 text-teal-500 border-slate-200 rounded 
-                   focus:ring-2 focus:ring-teal-500 focus:ring-offset-1"
-        />
-        <label
-          htmlFor="forceSend"
-          className="ml-2 block text-xs font-semibold text-slate-700"
-        >
-          Force send (bypass normal validation)
-        </label>
-      </div> */}
 
       {/* Footer Locations Section */}
       <div>
@@ -992,11 +998,7 @@ function NewEmail() {
           <button
             type="button"
             onClick={addFooterLocation}
-            className="px-4 py-2 rounded-lg shadow-sm 
-                     bg-gradient-to-r from-teal-500 to-teal-600 
-                     text-white text-sm font-medium 
-                     hover:from-teal-600 hover:to-teal-700 
-                     transition duration-200 flex items-center gap-2"
+            className="px-4 py-2 rounded-xs bg-blue-600 text-white text-sm font-medium flex items-center gap-2 hover:bg-blue-700 transition duration-200"
           >
             <Plus className="w-4 h-4" />
             Add Location
@@ -1006,7 +1008,7 @@ function NewEmail() {
         {emailData.footerLocations.map((location, index) => (
           <div
             key={index}
-            className="p-4 border border-slate-200 rounded-lg mb-4 bg-slate-50"
+            className="p-4 border border-blue-300 rounded-xs mb-4 bg-blue-50"
           >
             <div className="flex justify-between items-center mb-3">
               <h4 className="text-xs font-semibold text-slate-700">
@@ -1020,8 +1022,7 @@ function NewEmail() {
                 Remove
               </button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <input
                 type="text"
                 placeholder="Location Name (e.g., Nairobi Office)"
@@ -1029,9 +1030,7 @@ function NewEmail() {
                 onChange={(e) =>
                   handleFooterLocationChange(index, "location", e.target.value)
                 }
-                className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                         focus:outline-none focus:ring-2 focus:ring-teal-500 
-                         focus:border-transparent transition duration-200"
+                className={inputStyles}
               />
               <input
                 type="text"
@@ -1040,9 +1039,7 @@ function NewEmail() {
                 onChange={(e) =>
                   handleFooterLocationChange(index, "address", e.target.value)
                 }
-                className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                         focus:outline-none focus:ring-2 focus:ring-teal-500 
-                         focus:border-transparent transition duration-200"
+                className={inputStyles}
               />
               <input
                 type="text"
@@ -1051,9 +1048,7 @@ function NewEmail() {
                 onChange={(e) =>
                   handleFooterLocationChange(index, "phone", e.target.value)
                 }
-                className="w-full px-4 py-3 rounded-lg shadow-sm border border-slate-200 
-                         focus:outline-none focus:ring-2 focus:ring-teal-500 
-                         focus:border-transparent transition duration-200"
+                className={inputStyles}
               />
             </div>
           </div>
@@ -1071,11 +1066,7 @@ function NewEmail() {
       <div className="flex justify-between">
         <button
           onClick={handlePrevious}
-          className="px-8 py-3 cursor-pointer rounded-lg shadow-md 
-                   bg-gradient-to-r from-slate-500 to-slate-600 
-                   text-white text-base flex items-center gap-2
-                   hover:from-slate-600 hover:to-slate-700 
-                   transition duration-200"
+          className="px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700"
         >
           <ArrowLeft className="w-5 h-5" />
           Previous
@@ -1083,13 +1074,7 @@ function NewEmail() {
         <button
           onClick={handleSendEmail}
           disabled={loading}
-          className={`px-8 py-3 cursor-pointer rounded-lg shadow-md 
-             text-white text-base flex items-center gap-2
-             transition duration-200 ${loading
-              ? "bg-slate-400 cursor-not-allowed"
-              : emailData.send_type === "scheduled"
-                ? "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-                : "bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
+          className={`px-4 py-3 rounded-xs cursor-pointer bg-blue-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-blue-700 ${loading ? "opacity-50 cursor-not-allowed" : ""
             }`}
         >
           {loading ? (
@@ -1109,7 +1094,6 @@ function NewEmail() {
             </>
           )}
         </button>
-
       </div>
     </div>
   );
@@ -1135,43 +1119,43 @@ function NewEmail() {
     <div className="flex h-screen bg-blue-50 relative">
       {/* Spinner Overlay */}
       {showSpinner && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-[10001]">
           <Spinner />
         </div>
       )}
-      {/*Sidebar*/}
+      {/* Sidebar */}
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Label />
         <div className="flex-1 overflow-y-auto">
           <div className="relative z-10 container mx-auto px-4 py-8 pt-20 pb-20 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="bg-white rounded-xs border border-blue-200 shadow-md">
                 {/* Header */}
-                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-gray-800">
-                      Add Email Notification
-                    </h2>
-                    <button
-                      onClick={handleDiscardChanges}
-                      className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                    >
-                      <X />
-                    </button>
-                  </div>
+                <div className="bg-blue-100 px-6 py-3 rounded-t-xs flex justify-between items-center">
+                  <h2 className="text-lg font-bold text-[#061338]">
+                    Add Email Notification
+                  </h2>
+                  <button
+                    onClick={handleDiscardChanges}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="bg-white border-b border-gray-200">
+                <div className="bg-white border-b border-blue-200">
                   <nav className="flex space-x-8 px-6">
                     {tabs.map((tab, index) => (
                       <button
                         key={tab}
                         onClick={() => setCurrentTab(index)}
-                        className={`py-4 px-1 border-b-2 text-sm transition-colors ${currentTab === index
-                          ? "border-teal-500 text-teal-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 cursor-pointer"
+                        className={`py-4 px-1 border-b-2 text-base font-medium transition-colors ${currentTab === index
+                          ? "border-blue-600 text-blue-600"
+                          : "border-transparent text-slate-700 hover:text-blue-600 cursor-pointer"
                           }`}
                       >
                         {tab}
@@ -1181,43 +1165,31 @@ function NewEmail() {
                 </div>
 
                 {/* Tab Content */}
-                <div className="p-6">{renderTabContent()}</div>
-
-                {/* Discard Changes Button */}
-                <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                  {/* Save to Draft */}
-                  <button
-                    onClick={handleSaveDraft}
-                    className="px-5 py-2.5 flex items-center gap-2 rounded-lg shadow-sm cursor-pointer
-      bg-gradient-to-r from-teal-500 to-teal-600 
-      text-white font-medium 
-      hover:from-teal-600 hover:to-teal-700 
-      transition duration-200"
-                  >
-                    <Save className="w-5 h-5" />
-                    Save to Draft
-                  </button>
-
-                  {/* Discard Changes */}
-                  <button
-                    onClick={handleDiscardChanges}
-                    className="px-5 py-2.5 flex items-center gap-2 rounded-lg shadow-sm cursor-pointer
-      bg-gradient-to-r from-red-500 to-red-600 
-      text-white font-md
-      hover:from-red-600 hover:to-red-700 
-      transition duration-200"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                    Discard Changes
-                  </button>
+                <div className="p-8">
+                  <div className="space-y-6">{renderTabContent()}</div>
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={handleSaveDraft}
+                      className={`px-4 py-3 rounded-xs cursor-pointer bg-amber-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-amber-700 ${loading ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                    >
+                      <Save className="w-5 h-5" />
+                      Save to Draft
+                    </button>
+                    <button
+                      onClick={handleDiscardChanges}
+                      className="px-4 py-3 rounded-xs cursor-pointer bg-red-600 text-white text-base font-semibold flex items-center gap-2 hover:bg-red-700"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                      Discard Changes
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-
     </div>
   );
 }

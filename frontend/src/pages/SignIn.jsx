@@ -6,6 +6,8 @@ import { Mail, Lock, Eye, EyeOff, X } from "lucide-react";
 import { backend } from "../server";
 import Spinner from "../components/Spinner";
 import { useWebsite } from "../context/WebsiteContext";
+import { useAuth } from "../context/AuthContext";
+
 
 function SignIn() {
   const [email, setEmail] = useState("");
@@ -17,6 +19,8 @@ function SignIn() {
   const navigate = useNavigate();
 
   const { refreshWebsites } = useWebsite()
+
+  const { markLoggedIn } = useAuth()
 
   // const location = useLocation();
   // const from = location.state?.from?.pathname || "/emails";
@@ -79,6 +83,7 @@ function SignIn() {
       }
 
       await refreshWebsites();
+      markLoggedIn()
       notify.success("Login successful.");
       navigate("/home");
     } catch (error) {
