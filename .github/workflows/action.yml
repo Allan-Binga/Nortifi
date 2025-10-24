@@ -1,4 +1,4 @@
-name: nortifi
+name: Deploy Nortifi to VPS
 
 on:
   push:
@@ -7,38 +7,37 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-24.04
+    name: Deploy to DigitalOcean
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          fetch-depth: 0
+          ssh-private-key: ${{ secrets.SSH_KEY }}
 
-      # - name: Install Heroku CLI
-      #   run: |
-      #     curl https://cli-assets.heroku.com/install.sh | sh
+      - name: Deploy to VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd ${{ secrets.PROJECT_PATH }}
 
-      # - name: Authenticate with Heroku
-      #   env:
-      #       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-      #   run: |
-      #        echo "$HEROKU_API_KEY" | heroku auth:token
-      #        heroku git:remote -a ${{ secrets.HEROKU_APP_NAME }}   
- 
-      # - name: Push to Heroku
-      #   env:
-      #     HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-      #     HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
-      #   run: |
-      #     git config --global user.email "$HEROKU_EMAIL"
-      #     git config --global user.name "GitHub Actions"
-      #     git push https://heroku:$HEROKU_API_KEY@git.heroku.com/${{ secrets.HEROKU_APP_NAME }}.git HEAD:master --force
+            echo "Pulling latest code..."
+            git pull origin master
 
-      # - name: Notify Nortifi Channel
-      #   run: |
-      #     curl -X POST -H 'Content-type: application/json' \
-      #     --data "{\"text\":\"Deployment successful: *${{ github.event.head_commit.message }}*\"}" \
-      #     ${{ secrets.SLACK_WEBHOOK_URL }}
-    
+            echo "Installing dependencies..."
+            npm install --legacy-peer-deps
 
+            echo "Building frontend..."
+            cd frontend
+            npm install --legacy-peer-deps
+            npm run build
+            cd ..
+
+            echo "Restarting PM2..."
+            pm2 restart all || pm2 start index.js --name nortifi
+
+            echo "✅ Deployment complete!"
+          EOF
