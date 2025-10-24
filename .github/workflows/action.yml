@@ -14,6 +14,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -27,17 +32,17 @@ jobs:
             echo "Pulling latest code..."
             git pull origin master
 
-            echo "Installing dependencies..."
-            npm install --legacy-peer-deps
+            echo "Installing backend dependencies..."
+            npm ci --legacy-peer-deps
 
             echo "Building frontend..."
             cd frontend
-            npm install --legacy-peer-deps
+            npm ci --legacy-peer-deps
             npm run build
             cd ..
 
             echo "Restarting PM2..."
-            pm2 restart all || pm2 start index.js --name nortifi
+            pm2 restart nortifi || pm2 start index.js --name nortifi
 
             echo "✅ Deployment complete!"
           EOF
