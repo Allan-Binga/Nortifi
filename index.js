@@ -30,7 +30,7 @@ const allowedOrigins = [
   "http://localhost:8080",
   "https://mail-marketing-system-77782bd73854.herokuapp.com",
   "https://www.nortifi.com",
-  "http://159.65.23.201:5173"
+  "http://159.65.23.201:6300"
 ];
 
 const corsOptions = {
