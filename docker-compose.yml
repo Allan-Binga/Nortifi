@@ -1,0 +1,19 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    image: allanbinga/nortifi-frontend:v1.0.0
+    ports:
+      - "8080:80"
+    env_file:
+      - ./frontend/.env
+
+  backend:
+    build:
+      context: .
+    image: allanbinga/nortifi-backend:v1.0.0
+    ports:
+      - "6300:6300"
+    env_file:
+      - .env
+

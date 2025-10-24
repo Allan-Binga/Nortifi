@@ -97,7 +97,7 @@ function Label() {
 
                     {openUserDropdown && (
                         <div
-                            className="absolute right-0 top-14 bg-[#061338] text-white rounded-xl shadow-xl w-56 py-2 z-[9999] transition-all duration-200 ease-out origin-top-right animate-in fade-in slide-in-from-top-2"
+                            className="absolute right-0 top-14 bg-[#061338] text-white rounded-sm shadow-xl w-56 py-2 z-[9999] transition-all duration-200 ease-out origin-top-right animate-in fade-in slide-in-from-top-2"
                             onMouseEnter={() => setOpenUserDropdown(true)}
                             onMouseLeave={handleDropdownLeave}
                         >
