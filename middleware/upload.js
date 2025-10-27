@@ -24,6 +24,27 @@ const fileFilter = (req, file, cb) => {
 }
 
 //Upload CSV to S3
+const uploadCSV = multer({
+  storage: multerS3({
+    s3,
+    bucket: process.env.AWS_S3_BUCKET,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: (req, file, cb) => {
+      const filename = `nortifi/csvs/${Date.now()}-${file.originalname}`;
+      cb(null, filename);
+    },
+  }),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "text/csv" || file.mimetype === "application/vnd.ms-excel") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only CSV files are allowed"), false);
+    }
+  },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+}).single("file"); 
+
+
 const uploadFiles = multer({
   storage: multerS3({
     s3,
@@ -41,4 +62,4 @@ const uploadFiles = multer({
   }
 }).array("attachments", 5);
 
-module.exports = { uploadFiles };
+module.exports = { uploadFiles, uploadCSV };
