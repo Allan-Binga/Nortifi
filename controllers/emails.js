@@ -1,9 +1,8 @@
 const client = require("../config/db");
-const ses = require("../config/sesClient");
-const { SendEmailCommand } = require("@aws-sdk/client-ses");
 const crypto = require("crypto");
 const moment = require("moment-timezone");
 const nodemailer = require("nodemailer");
+const { uploadFiles } = require("../middleware/upload")
 
 // Generate unsubscribe token
 const generateUnsubscribeToken = () => crypto.randomBytes(32).toString("hex");
@@ -22,34 +21,61 @@ const decryptPassword = (encrypted) => {
 // Send Email with Nodemailer
 const sendEmail = async (req, res) => {
   const userId = req.userId;
-  // console.log(userId)
+  const files = req.files || []; // Files uploaded by multer middleware
 
   try {
     const {
       campaignId,
-      label,
       subject,
       body,
       fromName,
       replyToEmail,
-      toEmails = [],
-      cc = [],
-      bcc = [],
+      toEmails = '[]', // Default to JSON string "[]"
+      cc = '[]',
+      bcc = '[]',
       send_type = "immediate",
       scheduled_at = null,
       timezone: campaignTimezone = null,
       recurring_rule = null,
       forceSend = false,
-      footerLocations = [],
+      footerLocations = '[]',
       smtpConfigId,
       saveAsDraft = false,
+      socialMedia = '{}',
+      companyInfo = '{}',
+      filter = '{}',
     } = req.body;
+
+    // Parse JSON strings into arrays and validate
+    let toEmailsArray, ccArray, bccArray, tagsArray;
+    try {
+      toEmailsArray = typeof toEmails === 'string' ? JSON.parse(toEmails) : toEmails;
+      ccArray = typeof cc === 'string' ? JSON.parse(cc) : cc;
+      bccArray = typeof bcc === 'string' ? JSON.parse(bcc) : bcc;
+      tagsArray = filter.tags ? (typeof filter.tags === 'string' ? JSON.parse(filter.tags) : filter.tags) : [];
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid format for toEmails, cc, bcc, or tags",
+      });
+    }
+
+    // Ensure arrays contain only valid strings and remove empty entries
+    toEmailsArray = Array.isArray(toEmailsArray) ? toEmailsArray.filter(email => typeof email === 'string' && email.trim()) : [];
+    ccArray = Array.isArray(ccArray) ? ccArray.filter(email => typeof email === 'string' && email.trim()) : [];
+    bccArray = Array.isArray(bccArray) ? bccArray.filter(email => typeof email === 'string' && email.trim()) : [];
+    tagsArray = Array.isArray(tagsArray) ? tagsArray.filter(tag => typeof tag === 'string' && tag.trim()) : [];
 
     if (!subject || !body) {
       return res
         .status(400)
-        .json({ success: false, message: "subject and body are required" });
+        .json({ success: false, message: "Subject and body are required" });
     }
+
+    // Parse footerLocations, socialMedia, and companyInfo
+    const parsedFooterLocations = typeof footerLocations === 'string' ? JSON.parse(footerLocations) : footerLocations;
+    const parsedSocialMedia = typeof socialMedia === 'string' ? JSON.parse(socialMedia) : socialMedia;
+    const parsedCompanyInfo = typeof companyInfo === 'string' ? JSON.parse(companyInfo) : companyInfo;
 
     // --- Get SMTP Config ---
     let smtpQuery;
@@ -75,55 +101,72 @@ const sendEmail = async (req, res) => {
     const smtpPassword = decryptPassword(smtpConfig.smtp_password);
     const fromEmail = smtpConfig.smtp_user;
 
-    // --- Common values ---
     const status = saveAsDraft ? "draft" : "pending";
     const isDraft = saveAsDraft;
     const utcScheduledAt = scheduled_at
       ? moment.tz(scheduled_at, campaignTimezone || "UTC").toDate()
       : null;
 
+    // --- Prepare Attachments ---
+    const attachments = files.map((file) => ({
+      filename: file.originalname,
+      url: file.location, // S3 URL provided by multer-s3
+    }));
+
     let finalCampaignId = campaignId;
 
+    // --- Draft Handling ---
+    if (saveAsDraft && !campaignId) {
+      const existingDraft = await client.query(
+        `SELECT campaign_id FROM campaigns 
+         WHERE user_id = $1 AND subject = $2 AND is_draft = true 
+         ORDER BY created_at DESC LIMIT 1`,
+        [userId, subject]
+      );
+      if (existingDraft.rows.length > 0) {
+        finalCampaignId = existingDraft.rows[0].campaign_id;
+      }
+    }
+
     // --- Update or Insert Campaign ---
-    if (campaignId) {
-      // Update existing campaign
+    if (finalCampaignId) {
       const updateSQL = `
         UPDATE campaigns
-        SET label = $1, subject = $2, body = $3, from_name = $4, from_email = $5,
-            reply_to_email = $6, cc = $7, bcc = $8, status = $9,
-            scheduled_at = $10, send_type = $11, timezone = $12, recurring_rule = $13,
-            footer_locations = $14, smtp_config_id = $15, is_draft = $16
-        WHERE campaign_id = $17 AND user_id = $18
-        RETURNING campaign_id
+        SET subject=$1, body=$2, from_name=$3, from_email=$4, reply_to_email=$5,
+            cc=$6, bcc=$7, status=$8, scheduled_at=$9, send_type=$10, timezone=$11,
+            recurring_rule=$12, footer_locations=$13, smtp_config_id=$14, is_draft=$15,
+            social_media=$16, company_info=$17, tags=$18, attachments=$19
+        WHERE campaign_id=$20 AND user_id=$21 RETURNING campaign_id
       `;
-
       const updateRes = await client.query(updateSQL, [
-        label || null,
         subject,
         body,
-        fromName || "Nortify",
+        fromName || "Nortifi",
         fromEmail,
         replyToEmail || fromEmail,
-        cc || [],
-        bcc || [],
+        ccArray, // Pass array directly for text[]
+        bccArray, // Pass array directly for text[]
         status,
         utcScheduledAt,
         send_type,
         campaignTimezone || null,
         recurring_rule || null,
-        footerLocations ? JSON.stringify(footerLocations) : "[]",
+        JSON.stringify(parsedFooterLocations), // JSONB field
         smtpConfig.config_id,
         isDraft,
-        campaignId,
+        JSON.stringify(parsedSocialMedia), // JSONB field
+        JSON.stringify(parsedCompanyInfo), // JSONB field
+        tagsArray, // Pass array directly for text[]
+        JSON.stringify(attachments), // JSONB field
+        finalCampaignId,
         userId,
       ]);
 
       if (!updateRes.rows.length) {
-        return res.status(404).json({ success: false, message: "Draft not found" });
+        return res.status(404).json({ success: false, message: "Campaign not found" });
       }
 
       finalCampaignId = updateRes.rows[0].campaign_id;
-
       if (saveAsDraft) {
         return res.status(200).json({
           success: true,
@@ -132,37 +175,37 @@ const sendEmail = async (req, res) => {
         });
       }
     } else {
-      // Insert new campaign
       const insertSQL = `
         INSERT INTO campaigns
-          (label, subject, body, from_name, from_email, reply_to_email, cc, bcc,
+          (subject, body, from_name, from_email, reply_to_email, cc, bcc,
            user_id, status, scheduled_at, send_type, timezone, recurring_rule,
-           footer_locations, smtp_config_id, is_draft)
+           footer_locations, smtp_config_id, is_draft, social_media, company_info, tags, attachments)
         VALUES
-          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-        RETURNING campaign_id, scheduled_at
+          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        RETURNING campaign_id
       `;
-
       const insertRes = await client.query(insertSQL, [
-        label || null,
         subject,
         body,
-        fromName || "Nortify",
+        fromName || "Nortifi",
         fromEmail,
         replyToEmail || fromEmail,
-        cc || [],
-        bcc || [],
+        ccArray, // Pass array directly for text[]
+        bccArray, // Pass array directly for text[]
         userId,
         status,
         utcScheduledAt,
         send_type,
         campaignTimezone || null,
         recurring_rule || null,
-        footerLocations ? JSON.stringify(footerLocations) : "[]",
+        JSON.stringify(parsedFooterLocations), // JSONB field
         smtpConfig.config_id,
         isDraft,
+        JSON.stringify(parsedSocialMedia), // JSONB field
+        JSON.stringify(parsedCompanyInfo), // JSONB field
+        tagsArray, // Pass array directly for text[]
+        JSON.stringify(attachments), // JSONB field
       ]);
-
       finalCampaignId = insertRes.rows[0].campaign_id;
 
       if (saveAsDraft) {
@@ -176,16 +219,12 @@ const sendEmail = async (req, res) => {
 
     // --- Resolve Recipients ---
     const recipientsToSend = [];
-
-    for (const email of toEmails) {
+    for (const email of toEmailsArray) {
       let { rows } = await client.query(
-        "SELECT contact_id, unsubscribed, unsubscribe_token FROM contacts WHERE email = $1",
+        "SELECT contact_id, unsubscribed, unsubscribe_token FROM contacts WHERE email=$1",
         [email]
       );
-
-      let contact_id;
-      let unsubscribed = false;
-      let unsubscribe_token;
+      let contact_id, unsubscribed = false, unsubscribe_token;
 
       if (rows.length > 0) {
         contact_id = rows[0].contact_id;
@@ -194,7 +233,7 @@ const sendEmail = async (req, res) => {
       } else {
         unsubscribe_token = generateUnsubscribeToken();
         const { rows: newContact } = await client.query(
-          `INSERT INTO contacts (email, unsubscribe_token) VALUES ($1, $2) RETURNING contact_id`,
+          `INSERT INTO contacts (email, unsubscribe_token) VALUES ($1,$2) RETURNING contact_id`,
           [email, unsubscribe_token]
         );
         contact_id = newContact[0].contact_id;
@@ -204,29 +243,26 @@ const sendEmail = async (req, res) => {
         recipientsToSend.push({ contact_id, email, unsubscribe_token });
       } else {
         await client.query(
-          `INSERT INTO campaign_recipients (campaign_id, contact_id, status, filter_reason) 
+          `INSERT INTO campaign_recipients (campaign_id, contact_id, status, filter_reason)
            VALUES ($1,$2,'skipped','unsubscribed')`,
           [finalCampaignId, contact_id]
         );
       }
     }
 
-    // --- Handle Scheduled Campaigns ---
     const shouldSendNow = send_type === "immediate" || forceSend;
-
     if (!shouldSendNow) {
       await client.query(
-        `UPDATE campaigns SET status = 'scheduled' WHERE campaign_id = $1`,
+        `UPDATE campaigns SET status='scheduled', is_draft=false WHERE campaign_id=$1`,
         [finalCampaignId]
       );
-
       for (const r of recipientsToSend) {
         await client.query(
-          `INSERT INTO campaign_recipients (campaign_id, contact_id, status) VALUES ($1, $2, 'pending')`,
+          `INSERT INTO campaign_recipients (campaign_id, contact_id, status)
+           VALUES ($1,$2,'pending')`,
           [finalCampaignId, r.contact_id]
         );
       }
-
       return res.status(200).json({
         success: true,
         message: "Campaign scheduled",
@@ -240,56 +276,127 @@ const sendEmail = async (req, res) => {
       host: smtpConfig.smtp_host,
       port: smtpConfig.smtp_port,
       secure: smtpConfig.use_tls,
-      auth: {
-        user: smtpConfig.smtp_user,
-        pass: smtpPassword,
-      },
+      auth: { user: smtpConfig.smtp_user, pass: smtpPassword },
     });
+
+    // --- Social Media Icons ---
+    const socialIcons = {
+      facebook: `<a href="${parsedSocialMedia.facebook || '#'}" style="margin:0 8px;display:inline-block;">
+        <img src="https://nortifi.s3.eu-north-1.amazonaws.com/facebook.webp" alt="Facebook" width="28" height="28" style="border:0;">
+      </a>`,
+      twitter: `<a href="${parsedSocialMedia.twitter || '#'}" style="margin:0 8px;display:inline-block;">
+        <img src="https://nortifi.s3.eu-north-1.amazonaws.com/twitter.png" alt="Twitter" width="28" height="28" style="border:0;">
+      </a>`,
+      linkedin: `<a href="${parsedSocialMedia.linkedin || '#'}" style="margin:0 8px;display:inline-block;">
+        <img src="https://nortifi.s3.eu-north-1.amazonaws.com/linkedin.png" alt="LinkedIn" width="28" height="28" style="border:0;">
+      </a>`,
+      instagram: `<a href="${parsedSocialMedia.instagram || '#'}" style="margin:0 8px;display:inline-block;">
+        <img src="https://nortifi.s3.eu-north-1.amazonaws.com/instagram2.webp" alt="Instagram" width="28" height="28" style="border:0;">
+      </a>`,
+    };
+
+    // --- Footer Section ---
+    const footerParts = [
+      `<div style="background:#f7f7f7;padding:20px;border-radius:4px;margin-top:30px;">
+        <div style="text-align:center;margin-bottom:16px;">
+          <a href="${process.env.CLIENT_URL}/unsubscribe?token={UNSUBSCRIBE_TOKEN}"
+            style="background-color:#007bff;color:#fff;font-size:13px;padding:10px 18px;
+            text-decoration:none;border-radius:6px;display:inline-block;font-weight:500;">
+            Unsubscribe
+          </a>
+        </div>
+      </div>`,
+    ];
+
+    if (parsedCompanyInfo.name)
+      footerParts.push(
+        `<p style="font-size:12px;color:#666;margin:2px 0;text-align:center;"><strong>${parsedCompanyInfo.name}</strong></p>`
+      );
+    if (parsedCompanyInfo.location)
+      footerParts.push(
+        `<p style="font-size:12px;color:#666;margin:2px 0;text-align:center;">${parsedCompanyInfo.location}</p>`
+      );
+    if (parsedCompanyInfo.customerCare)
+      footerParts.push(
+        `<p style="font-size:12px;color:#666;margin:2px 0;text-align:center;">Customer Care: ${parsedCompanyInfo.customerCare}</p>`
+      );
+
+    if (parsedFooterLocations.length) {
+      footerParts.push(
+        `<p style="font-size:12px;color:#666;margin:2px 0;text-align:center;"><strong>Our Locations:</strong></p>`
+      );
+      parsedFooterLocations.forEach((loc) => {
+        footerParts.push(
+          `<p style="font-size:12px;color:#666;margin:2px 0;text-align:center;">${loc.location}: ${loc.address}, ${loc.phone}</p>`
+        );
+      });
+    }
+
+    const socialLinks = [];
+    if (parsedSocialMedia.facebook) socialLinks.push(socialIcons.facebook);
+    if (parsedSocialMedia.twitter) socialLinks.push(socialIcons.twitter);
+    if (parsedSocialMedia.linkedin) socialLinks.push(socialIcons.linkedin);
+    if (parsedSocialMedia.instagram) socialLinks.push(socialIcons.instagram);
+    if (socialLinks.length)
+      footerParts.push(`<div style="text-align:center;margin:10px 0;">${socialLinks.join("")}</div>`);
+
+    if (parsedCompanyInfo.privacyPolicy)
+      footerParts.push(
+        `<p style="font-size:12px;color:#666;margin:2px 0;text-align:center;"><a href="${parsedCompanyInfo.privacyPolicy}" style="color:#007bff;">Privacy Policy</a></p>`
+      );
+    if (parsedCompanyInfo.termsConditions)
+      footerParts.push(
+        `<p style="font-size:12px;color:#666;margin:2px 0;text-align:center;"><a href="${parsedCompanyInfo.termsConditions}" style="color:#007bff;">Terms and Conditions</a></p>`
+      );
+
+    // --- Prepare Email Attachments ---
+    const attachmentObjects = [];
+    for (const attachment of attachments) {
+      try {
+        const response = await fetch(attachment.url);
+        if (!response.ok) throw new Error(`Failed to fetch ${attachment.filename}`);
+        const buffer = Buffer.from(await response.arrayBuffer());
+        attachmentObjects.push({
+          filename: attachment.filename,
+          content: buffer,
+          contentType: response.headers.get("content-type"),
+        });
+      } catch (error) {
+        console.error(`Error fetching attachment ${attachment.filename}:`, error);
+      }
+    }
 
     // --- Send Emails ---
     for (const recipient of recipientsToSend) {
-      const footerParts = [
-        `<p style="font-size:12px;color:#666;margin:20px 0;">
-          Don’t want to receive these emails? 
-          <a href="${process.env.CLIENT_URL}/unsubscribe?token=${recipient.unsubscribe_token}" style="color:#007bff;">Unsubscribe</a>
-        </p>`,
-      ];
-
-      if (footerLocations.length) {
-        footerLocations.forEach((loc) => {
-          footerParts.push(
-            `<p style="font-size:12px;color:#666;margin:2px 0;">
-              <strong>${loc.location}</strong>: ${loc.address}, ${loc.phone}
-            </p>`
-          );
-        });
-      }
-
-      const htmlTemplate = `<div>${body}${footerParts.join("")}</div>`;
+      const htmlTemplate = `<div style="font-family:Arial,sans-serif;">
+        ${body}
+        <div style="border-top:1px solid #ccc;padding-top:10px;margin-top:20px;
+        background:#f7f7f7;border-radius:4px;padding-bottom:20px;">
+          ${footerParts.join("")}
+        </div>
+      </div>`.replace("{UNSUBSCRIBE_TOKEN}", recipient.unsubscribe_token);
 
       await transporter.sendMail({
-        from: {
-          name: fromName || "Nortify",
-          address: fromEmail,
-        },
+        from: { name: fromName || "Nortifi", address: fromEmail },
         to: recipient.email,
-        cc: cc,
-        bcc: bcc,
+        cc: ccArray, // Use parsed array for Nodemailer
+        bcc: bccArray, // Use parsed array for Nodemailer
         subject,
         html: htmlTemplate,
         text: body.replace(/<\/?[^>]+(>|$)/g, ""),
         replyTo: replyToEmail || fromEmail,
+        attachments: attachmentObjects, // Attach files
       });
 
       await client.query(
-        `INSERT INTO campaign_recipients (campaign_id, contact_id, status, sent_at) 
-         VALUES ($1, $2, 'sent', NOW())`,
+        `INSERT INTO campaign_recipients (campaign_id, contact_id, status, sent_at)
+         VALUES ($1,$2,'sent',NOW())`,
         [finalCampaignId, recipient.contact_id]
       );
     }
 
     await client.query(
-      `UPDATE campaigns SET status = 'sent' WHERE campaign_id = $1`,
+      `UPDATE campaigns SET status='sent', is_draft=false WHERE campaign_id=$1`,
       [finalCampaignId]
     );
 
@@ -304,273 +411,6 @@ const sendEmail = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to send emails",
-      error: error.message,
-    });
-  }
-};
-
-// AWS SES
-const sendEmailAWS = async (req, res) => {
-  const userId = req.userId;
-  try {
-    const {
-      label,
-      subject,
-      body,
-      fromName,
-      fromEmail,
-      replyToEmail,
-      toEmails = [],
-      cc = [],
-      bcc = [],
-      send_type = "immediate",
-      scheduled_at = null,
-      timezone: campaignTimezone = null,
-      recurring_rule = null,
-      filter = {},
-      forceSend = false,
-      footerLocations = [],
-    } = req.body;
-
-    // Validate footer_locations
-    if (footerLocations && !Array.isArray(footerLocations)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "footer_locations must be an array" });
-    }
-
-    if (
-      recurring_rule &&
-      !["daily", "weekly", "monthly"].includes(recurring_rule)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid recurring_rule. Use "daily", "weekly", or "monthly".',
-      });
-    }
-
-    if (!subject || !body) {
-      return res
-        .status(400)
-        .json({ success: false, message: "subject and body are required" });
-    }
-
-    // --- Insert Campaign ---
-    const insertCampaignSQL = `
-      INSERT INTO campaigns
-        (label, subject, body, from_name, from_email, reply_to_email, cc, bcc, user_id, status, scheduled_at, send_type, timezone, recurring_rule, footer_locations)
-      VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14)
-      RETURNING campaign_id, scheduled_at
-    `;
-
-    const utcScheduledAt = scheduled_at
-      ? moment.tz(scheduled_at, campaignTimezone || "UTC").toDate()
-      : null;
-
-    const campaignRes = await client.query(insertCampaignSQL, [
-      label || null,
-      subject,
-      body,
-      fromName || null,
-      fromEmail || process.env.DEFAULT_FROM_EMAIL,
-      replyToEmail || process.env.DEFAULT_REPLYTO,
-      cc || [],
-      bcc || [],
-      userId,
-      utcScheduledAt,
-      send_type,
-      campaignTimezone || null,
-      recurring_rule || null,
-      footerLocations ? JSON.stringify(footerLocations) : "[]",
-    ]);
-    const campaignId = campaignRes.rows[0].campaign_id;
-
-    // --- Resolve Recipients ---
-    const recipientsToSend = [];
-
-    for (const email of toEmails) {
-      // Check if contact exists, include unsubscribe_token
-      let { rows } = await client.query(
-        "SELECT contact_id, unsubscribed, unsubscribe_token FROM contacts WHERE email = $1",
-        [email]
-      );
-
-      let contact_id;
-      let unsubscribed = false;
-      let unsubscribe_token;
-
-      if (rows.length > 0) {
-        contact_id = rows[0].contact_id;
-        unsubscribed = rows[0].unsubscribed;
-        unsubscribe_token = rows[0].unsubscribe_token;
-      } else {
-        // Create new contact if not exists
-        unsubscribe_token = generateUnsubscribeToken();
-        const { rows: newContact } = await client.query(
-          `INSERT INTO contacts (email, unsubscribe_token) VALUES ($1, $2) RETURNING contact_id`,
-          [email, unsubscribe_token]
-        );
-        contact_id = newContact[0].contact_id;
-      }
-
-      if (unsubscribed) {
-        // Mark as skipped
-        await client.query(
-          `INSERT INTO campaign_recipients (campaign_id, contact_id, status, filter_reason) 
-           VALUES ($1,$2,'skipped','unsubscribed')`,
-          [campaignId, contact_id]
-        );
-      } else {
-        recipientsToSend.push({ contact_id, email, unsubscribe_token });
-      }
-    }
-
-    const shouldSendNow = send_type === "immediate" || forceSend;
-
-    if (!shouldSendNow) {
-      await client.query(
-        `UPDATE campaigns SET status = 'scheduled' WHERE campaign_id = $1`,
-        [campaignId]
-      );
-      for (const r of recipientsToSend) {
-        await client.query(
-          `INSERT INTO campaign_recipients (campaign_id, contact_id, status) VALUES ($1, $2, 'pending')`,
-          [campaignId, r.contact_id]
-        );
-      }
-      return res.status(200).json({
-        success: true,
-        message: "Campaign scheduled",
-        campaignId,
-        recipients_count: recipientsToSend.length,
-      });
-    }
-
-    // --- Send via AWS SES ---
-    const toAddresses = recipientsToSend.map((r) => r.email);
-
-    if (!toAddresses.length) {
-      return res.status(400).json({ success: false, message: "No recipients" });
-    }
-
-    // Generate footer for each recipient
-    for (const recipient of recipientsToSend) {
-      // --- Email Template ---
-      const footerParts = [];
-
-      // Unsubscribe section
-      footerParts.push(`
-    <p style="font-size: 12px; color: #666; margin: 20px 0;">
-      Don’t want to receive these emails? 
-      <a href="http://localhost:6300/mail-marketing-system/emails/unsubscribe?token=${recipient.unsubscribe_token}"
-         style="color:#007bff; text-decoration:none;">
-         Unsubscribe
-      </a>
-    </p>
-  `);
-
-      // Footer locations if provided
-      if (footerLocations.length) {
-        footerParts.push(
-          `<p style="font-size: 12px; color: #666; margin: 10px 0 0;">Our Locations:</p>`
-        );
-        footerLocations.forEach((loc) => {
-          footerParts.push(`
-        <p style="font-size: 12px; color: #666; margin: 2px 0;">
-          <strong>${loc.location}</strong>: ${loc.address}, ${loc.phone}
-        </p>
-      `);
-        });
-      }
-
-      const footer = footerParts.join("");
-
-      // Full centered template
-      const htmlTemplate = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <title>${subject}</title>
-      </head>
-      <body style="margin:0; padding:0; background:#f9f9f9; font-family:Arial,sans-serif;">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td align="center" style="padding:40px 20px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" 
-                     style="background:#ffffff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.05); padding:30px; text-align:center;">
-                <tr>
-                  <td style="font-size:18px; line-height:1.6; color:#333333;">
-                    ${body}
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding-top:20px; border-top:1px solid #eee;">
-                    ${footer}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
-
-      const params = {
-        Destination: {
-          ToAddresses: [recipient.email], // Send individually for unique unsubscribe
-          CcAddresses: cc,
-          BccAddresses: bcc,
-        },
-        Message: {
-          Body: {
-            Html: { Charset: "UTF-8", Data: htmlTemplate },
-            Text: {
-              Charset: "UTF-8",
-              Data:
-                body.replace(/<\/?[^>]+(>|$)/g, "") +
-                "\n\nUnsubscribe: https://yourapp.com/unsubscribe?token=" +
-                recipient.unsubscribe_token,
-            },
-          },
-          Subject: { Charset: "UTF-8", Data: subject },
-        },
-        Source: `"${fromName || "Default Sender"}" <${fromEmail || process.env.DEFAULT_FROM_EMAIL
-          }>`,
-        ReplyToAddresses: [replyToEmail || process.env.DEFAULT_REPLYTO],
-      };
-
-      const command = new SendEmailCommand(params);
-      await ses.send(command);
-    }
-
-    // --- Insert campaign_recipients after sending ---
-    for (const r of recipientsToSend) {
-      await client.query(
-        `INSERT INTO campaign_recipients (campaign_id, contact_id, status, sent_at) 
-         VALUES ($1, $2, 'sent', NOW())`,
-        [campaignId, r.contact_id]
-      );
-    }
-
-    await client.query(
-      `UPDATE campaigns SET status = 'sent' WHERE campaign_id = $1`,
-      [campaignId]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: `Campaign sent via AWS SES to ${recipientsToSend.length} recipients.`,
-      campaignId,
-      recipients: toAddresses,
-    });
-  } catch (error) {
-    console.error("Error in sendEmailAWS:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to send via SES",
       error: error.message,
     });
   }
@@ -599,7 +439,7 @@ const unsubscribeEmail = async (req, res) => {
     const contact = rows[0];
 
     if (contact.unsubscribed) {
-      return res.send("You are already unsubscribed ✅");
+      return res.send("You are already unsubscribed.");
     }
 
     //Update Status
@@ -608,7 +448,7 @@ const unsubscribeEmail = async (req, res) => {
       [contact.contact_id]
     );
 
-    return res.send("You have been unsubscribed successfully 👋");
+    return res.send("You have been unsubscribed successfully.");
   } catch (error) {
     console.error("Unsubscribe error:", err);
     return res.status(500).send("An error occurred while unsubscribing.");
@@ -712,7 +552,6 @@ const getSingleCampaign = async (req, res) => {
   }
 };
 
-
 //Get Emails
 const getEmails = async (req, res) => {
   try {
@@ -769,6 +608,5 @@ module.exports = {
   getCampaignsByStatus,
   getSingleCampaign,
   getEmails,
-  sendEmailAWS,
   getCampaignRecipients,
 };

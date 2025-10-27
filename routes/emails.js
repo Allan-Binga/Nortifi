@@ -1,7 +1,6 @@
 const express = require("express");
 const {
   getEmailCampaigns,
-  sendEmailAWS,
   getEmails,
   unsubscribeEmail,
   getCampaignRecipients,
@@ -10,12 +9,12 @@ const {
   getCampaignsByStatus,
 } = require("../controllers/emails");
 const { authUser } = require("../middleware/jwt");
+const {uploadFiles} = require("../middleware/upload")
 
 const router = express.Router();
 
 router.get("/unsubscribe", unsubscribeEmail);
-router.post("/aws/send-email", authUser, sendEmailAWS);
-router.post("/smtp/send-email", authUser, sendEmail)
+router.post("/smtp/send-email", authUser, uploadFiles, sendEmail)
 router.get("/all-campaigns", authUser, getEmailCampaigns);
 router.get("/all-campaigns/:status", authUser, getCampaignsByStatus)
 router.get("/campaign/:campaignId", authUser, getSingleCampaign)

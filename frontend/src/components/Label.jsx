@@ -11,7 +11,6 @@ function Label() {
     const [openUserDropdown, setOpenUserDropdown] = useState(false);
     const [isWebsiteModalOpen, setIsWebsiteModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [activeDropdown, setActiveDropdown] = useState(null);
 
     const routeNames = {
         "/home": "Home",
@@ -22,10 +21,15 @@ function Label() {
         "/register-smtp": "Register SMTP Server",
         "/emails": "All Emails",
         "/emails/sent": "Sent Emails",
+        "/emails/campaign": "Email Details", // Handle /emails/campaign/:campaignId
     };
 
     const getPageName = () => {
         const path = location.pathname;
+        // Check if path starts with /emails/campaign to map to "Email Details"
+        if (path.startsWith("/emails/campaign")) {
+            return routeNames["/emails/campaign"];
+        }
         return (
             routeNames[path] ||
             path
@@ -103,11 +107,8 @@ function Label() {
                         >
                             {/* New Website Button */}
                             <button
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-indigo-500/80 rounded transition-colors duration-150 text-left"
-                                onClick={() => {
-                                    handleNewWebsiteClick()
-                                    setActiveDropdown(null);
-                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-amber-500/80 rounded transition-colors duration-150 text-left cursor-pointer"
+                                onClick={handleNewWebsiteClick}
                             >
                                 <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                     <Globe />
@@ -127,8 +128,8 @@ function Label() {
                                         setOpenUserDropdown(false);
                                     }}
                                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded transition-colors duration-150 text-left ${activeWebsite?.website_id === site.website_id
-                                        ? "bg-amber-500/80 font-medium"
-                                        : "hover:bg-amber-500/80"
+                                            ? "bg-amber-500/80 font-medium"
+                                            : "hover:bg-amber-500/80"
                                         }`}
                                 >
                                     <div className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-800 rounded-full text-xs font-semibold flex-shrink-0">
@@ -148,7 +149,7 @@ function Label() {
                                 <a
                                     key={item.name}
                                     href={item.path}
-                                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-indigo-500/80 rounded transition-colors duration-150 w-full text-left"
+                                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-amber-500/80 rounded transition-colors duration-150 w-full text-left"
                                     onClick={() => setOpenUserDropdown(false)}
                                 >
                                     <span className="w-6 h-6 flex-shrink-0"></span>
@@ -160,7 +161,6 @@ function Label() {
                 </div>
             </div>
         </>
-
     );
 }
 
