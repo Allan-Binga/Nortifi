@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
         } catch {
             if (!manualLogout.current) {
                 setIsAuthenticated(false);
-                navigate("/sign-in", { replace: false });
+                // navigate("/sign-in", { replace: false });
             } else {
                 // Reset flag after logout
                 manualLogout.current = false;
