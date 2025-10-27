@@ -41,8 +41,6 @@ function Label() {
         );
     };
 
-    console.log("Websites:", websites);
-    console.log(activeWebsite)
 
     const pageName = getPageName();
 
