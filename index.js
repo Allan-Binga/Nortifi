@@ -29,6 +29,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://www.nortifi.com",
   "https://nortifi.com",
+  "http://203.161.61.215:6300"
 ];
 
 const corsOptions = {
